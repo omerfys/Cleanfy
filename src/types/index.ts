@@ -36,6 +36,10 @@ export interface FileItem {
   index?: number;
   screenX?: number | null;
   screenY?: number | null;
+  virtualX?: number | null;
+  virtualY?: number | null;
+  displayId?: number | null;
+  screenDevice?: string | null;
   // Fizik simülasyonu için geçici koordinatlar
   x?: number;
   y?: number;

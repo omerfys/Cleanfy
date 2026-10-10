@@ -6,6 +6,7 @@ interface ScreenSelectorModalProps {
   isOpen: boolean;
   displays: DisplayInfo[];
   currentDisplay: DisplayInfo | null;
+  files?: Array<{ displayId?: number | null }>;
   onSelectDisplay: (displayId: number) => void;
   onClose: () => void;
 }
@@ -14,6 +15,7 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
   isOpen,
   displays,
   currentDisplay,
+  files = [],
   onSelectDisplay,
   onClose,
 }) => {
@@ -77,6 +79,7 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
             <div className="relative w-full h-full flex items-center justify-center">
               {displays.map((disp) => {
                 const isSelected = currentDisplay?.id === disp.id;
+                const fileCount = files.filter(f => f.displayId === disp.id).length;
                 // Göreceli genişlik ve sol konum hesabı
                 const relLeft = ((disp.bounds.x - minX) / totalSpanX) * 100;
                 const relWidth = (disp.bounds.width / totalSpanX) * 100;
@@ -108,11 +111,9 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
                     <span className="text-[9px] font-mono opacity-80 mt-0.5">
                       {disp.bounds.width}×{disp.bounds.height}
                     </span>
-                    {disp.isPrimary && (
-                      <span className="text-[8px] font-semibold text-cyan-300 mt-0.5">
-                        [Ana Ekran]
-                      </span>
-                    )}
+                    <span className="text-[9px] font-semibold text-cyan-300 mt-0.5">
+                      📄 {fileCount} Dosya
+                    </span>
                   </button>
                 );
               })}
@@ -124,6 +125,7 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
         <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
           {displays.map((disp) => {
             const isSelected = currentDisplay?.id === disp.id;
+            const fileCount = files.filter(f => f.displayId === disp.id).length;
             return (
               <div
                 key={disp.id}
@@ -149,6 +151,9 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-xs text-white">
                         Ekran {disp.index}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold">
+                        📄 {fileCount} Dosya
                       </span>
                       {disp.isPrimary && (
                         <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 font-medium">

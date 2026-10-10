@@ -133,7 +133,44 @@ ipcMain.handle('desktop:getPath', async () => {
 });
 
 ipcMain.handle('desktop:scan', async (_, customPath) => {
-  return scanDesktop(customPath);
+  const result = await scanDesktop(customPath);
+  const allDisplays = screen.getAllDisplays();
+  const primaryId = screen.getPrimaryDisplay().id;
+
+  // Her dosyayı fiziksel olarak bulunduğu monitöre eşle
+  if (result && Array.isArray(result.files)) {
+    result.files = result.files.map(file => {
+      let matchedDisplayId = primaryId;
+      let localX = file.screenX;
+      let localY = file.screenY;
+
+      if (typeof file.virtualX === 'number' && typeof file.virtualY === 'number') {
+        const d = allDisplays.find(disp => {
+          return (
+            file.virtualX >= disp.bounds.x &&
+            file.virtualX < disp.bounds.x + disp.bounds.width &&
+            file.virtualY >= disp.bounds.y &&
+            file.virtualY < disp.bounds.y + disp.bounds.height
+          );
+        });
+
+        if (d) {
+          matchedDisplayId = d.id;
+          localX = file.virtualX - d.bounds.x;
+          localY = file.virtualY - d.bounds.y;
+        }
+      }
+
+      return {
+        ...file,
+        displayId: matchedDisplayId,
+        screenX: localX,
+        screenY: localY,
+      };
+    });
+  }
+
+  return result;
 });
 
 ipcMain.handle('desktop:moveFile', async (_, desktopPath, fileItem) => {

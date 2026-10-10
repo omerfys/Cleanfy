@@ -508,6 +508,9 @@ public class ShellIconHelper {
 public class ItemPos {
     public int ScreenX;
     public int ScreenY;
+    public int VirtualX;
+    public int VirtualY;
+    public string DeviceName;
 }
 
 public class DesktopHelper {
@@ -543,7 +546,13 @@ public class DesktopHelper {
                         Screen sc = Screen.FromPoint(new Point(pt.X, pt.Y));
                         int sx = pt.X - (sc != null ? sc.Bounds.X : 0);
                         int sy = pt.Y - (sc != null ? sc.Bounds.Y : 0);
-                        map[i] = new ItemPos { ScreenX = sx, ScreenY = sy };
+                        map[i] = new ItemPos {
+                            ScreenX = sx,
+                            ScreenY = sy,
+                            VirtualX = pt.X,
+                            VirtualY = pt.Y,
+                            DeviceName = (sc != null ? sc.DeviceName : "")
+                        };
                     }
                 }
             }
@@ -619,9 +628,15 @@ for ($i = 0; $i -lt $items.Count; $i++) {
 
     $sx = $null
     $sy = $null
+    $vx = $null
+    $vy = $null
+    $dev = ""
     if ($posMap -and $posMap.ContainsKey($i)) {
         $sx = $posMap[$i].ScreenX
         $sy = $posMap[$i].ScreenY
+        $vx = $posMap[$i].VirtualX
+        $vy = $posMap[$i].VirtualY
+        $dev = $posMap[$i].DeviceName
     }
 
     $res += [PSCustomObject]@{
@@ -634,6 +649,9 @@ for ($i = 0; $i -lt $items.Count; $i++) {
         iconDataUrl = $b64
         screenX = $sx
         screenY = $sy
+        virtualX = $vx
+        virtualY = $vy
+        screenDevice = $dev
     }
 }
 
@@ -722,6 +740,9 @@ if ($OutFile) {
           index: rawItem.index,
           screenX: typeof rawItem.screenX === 'number' ? rawItem.screenX : null,
           screenY: typeof rawItem.screenY === 'number' ? rawItem.screenY : null,
+          virtualX: typeof rawItem.virtualX === 'number' ? rawItem.virtualX : null,
+          virtualY: typeof rawItem.virtualY === 'number' ? rawItem.virtualY : null,
+          screenDevice: rawItem.screenDevice || null,
           status: 'Taranmış',
         });
       } else {
@@ -746,6 +767,9 @@ if ($OutFile) {
           index: rawItem.index,
           screenX: typeof rawItem.screenX === 'number' ? rawItem.screenX : null,
           screenY: typeof rawItem.screenY === 'number' ? rawItem.screenY : null,
+          virtualX: typeof rawItem.virtualX === 'number' ? rawItem.virtualX : null,
+          virtualY: typeof rawItem.virtualY === 'number' ? rawItem.virtualY : null,
+          screenDevice: rawItem.screenDevice || null,
           status: 'Taranmış',
         });
       }

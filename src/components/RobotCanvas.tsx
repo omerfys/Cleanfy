@@ -243,16 +243,15 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
       let initialY: number;
 
       if (typeof file.screenX === 'number' && typeof file.screenY === 'number') {
-        // Windows Shell'den gelen gerçek masaüstü koordinatları (simge hücresinin merkezi: +38px, +45px)
-        const scaleX = W / 1920;
-        const scaleY = H / 1080;
-        initialX = (file.screenX + 38) * scaleX;
-        initialY = (file.screenY + 45) * scaleY;
+        // Windows Shell'den gelen gerçek monitör yerel piksel koordinatları (+38px, +45px simge merkezi)
+        initialX = file.screenX + 38;
+        initialY = file.screenY + 45;
       } else {
         const itemIndex = typeof file.index === 'number' ? file.index : i;
-        const pos = getDesktopItemCoords(itemIndex, W, H);
-        initialX = pos.x;
-        initialY = pos.y;
+        const col = Math.floor(itemIndex / 10);
+        const row = itemIndex % 10;
+        initialX = 35 + col * 76;
+        initialY = 28 + row * 102;
       }
 
       const body = Bodies.rectangle(

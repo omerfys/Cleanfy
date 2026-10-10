@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RobotCanvas } from './components/RobotCanvas';
 import { PreviewModal } from './components/PreviewModal';
 import { ReportModal } from './components/ReportModal';
@@ -48,6 +48,13 @@ export const App: React.FC = () => {
   const [currentDisplay, setCurrentDisplay] = useState<DisplayInfo | null>(null);
   const [isScreenModalOpen, setIsScreenModalOpen] = useState<boolean>(false);
   const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
+  const [screenFilterMode, setScreenFilterMode] = useState<'current_screen' | 'all_screens'>('current_screen');
+
+  // Aktif Monitördeki Dosyalar: Farklı bir ekrana geçince SADECE o ekranın üzerindeki dosyaları simüle et
+  const activeDisplayFiles = useMemo(() => {
+    if (screenFilterMode === 'all_screens' || !currentDisplay) return files;
+    return files.filter(f => f.displayId === currentDisplay.id);
+  }, [files, currentDisplay, screenFilterMode]);
 
   // İşlem Durumları
   const [isScanning, setIsScanning] = useState<boolean>(false);
@@ -201,7 +208,7 @@ export const App: React.FC = () => {
     setProgressPercent(0);
     setCleanedFileIds(new Set());
 
-    const activeFilesToClean = files.filter(f => !f.isExcluded);
+    const activeFilesToClean = activeDisplayFiles.filter(f => !f.isExcluded);
     const totalToClean = activeFilesToClean.length;
 
     if (totalToClean === 0) {
@@ -214,11 +221,11 @@ export const App: React.FC = () => {
     const createdFolderSet = new Set<string>();
 
     let movedCount = 0;
-    let skippedCount = files.filter(f => f.isExcluded).length;
+    let skippedCount = activeDisplayFiles.filter(f => f.isExcluded).length;
     let failedCount = 0;
 
     // Hariç tutulanları kaydet
-    files.filter(f => f.isExcluded).forEach(f => {
+    activeDisplayFiles.filter(f => f.isExcluded).forEach(f => {
       newReportItems.push({
         fileName: f.name,
         extension: f.extension,
@@ -404,10 +411,11 @@ export const App: React.FC = () => {
           const wp = await window.cleanfyApi.getWallpaper?.();
           if (wp) setWallpaperUrl(wp);
 
-          // Eğer seçili alanlar varsa yeni ekranın boyutlarına göre uyarla
+          // Eğer seçili alanlar varsa yeni ekranın boyutlarına ve dosyalarına göre uyarla
           if (activeZones.length > 0) {
+            const nextScreenFiles = files.filter(f => f.displayId === switched.id);
             const { targets, zonesWithCounts } = computeMultiZoneArrangement(
-              files,
+              nextScreenFiles,
               activeZones,
               filePositionsRef.current,
               switched.bounds.width,
@@ -436,7 +444,7 @@ export const App: React.FC = () => {
     const screenH = currentDisplay?.bounds.height || window.innerHeight || 1080;
 
     const { targets, zonesWithCounts } = computeMultiZoneArrangement(
-      files,
+      activeDisplayFiles,
       newZones,
       filePositionsRef.current,
       screenW,
@@ -451,7 +459,7 @@ export const App: React.FC = () => {
     const screenOffsetX = currentDisplay?.bounds.x ?? 0;
     const screenOffsetY = currentDisplay?.bounds.y ?? 0;
 
-    files.forEach(f => {
+    activeDisplayFiles.forEach(f => {
       const t = targets[f.id];
       if (t) {
         const virtualX = Math.round(t.x + screenOffsetX);
@@ -522,7 +530,7 @@ export const App: React.FC = () => {
       {/* 1. TÜM MASAÜSTÜNÜ KAPLAYAN 2D FİZİK ROBOT TUVALİ */}
       <div className="absolute inset-0 z-0">
         <RobotCanvas
-          files={files}
+          files={activeDisplayFiles}
           robotState={robotState}
           activeFileId={activeFileId}
           cleanedFileIds={cleanedFileIds}
@@ -640,9 +648,18 @@ export const App: React.FC = () => {
               <Folder className="w-3 h-3 text-cyan-400 shrink-0" />
               <span className="truncate">{desktopPath || 'Masaüstü...'}</span>
             </div>
-            <span className="px-2 py-1 rounded-lg glass-pill font-mono text-slate-200 shrink-0">
-              📄 <strong>{files.length}</strong>
-            </span>
+            <button
+              onClick={() => setScreenFilterMode(prev => prev === 'current_screen' ? 'all_screens' : 'current_screen')}
+              className="px-2 py-1 rounded-lg glass-pill font-mono text-slate-200 hover:text-white hover:!border-cyan-400/40 transition-colors cursor-pointer shrink-0"
+              title={screenFilterMode === 'current_screen' 
+                ? `Bu ekrandaki dosyalar: ${activeDisplayFiles.length}. Tüm ekranları görmek için tıklayın.` 
+                : `Tüm ekranlardaki dosyalar: ${files.length}. Sadece bu ekranı görmek için tıklayın.`}
+            >
+              📄 <strong>{activeDisplayFiles.length}</strong>
+              {screenFilterMode === 'current_screen' && files.length !== activeDisplayFiles.length && (
+                <span className="text-[9px] text-cyan-300 font-normal ml-1">/ {files.length}</span>
+              )}
+            </button>
             <span className="px-2 py-1 rounded-lg glass-pill font-mono text-emerald-300 !border-emerald-500/30 !bg-emerald-500/10 shrink-0">
               ✓ <strong>{stats.moved}</strong>
             </span>
@@ -678,7 +695,7 @@ export const App: React.FC = () => {
             {!isCleaning ? (
               <button
                 onClick={handleStartCleaning}
-                disabled={isScanning || files.length === 0}
+                disabled={isScanning || activeDisplayFiles.length === 0}
                 className="glass-btn-primary flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-white text-[11px] font-bold disabled:opacity-50"
               >
                 <Sparkles className="w-3 h-3 text-cyan-100" />
@@ -711,7 +728,7 @@ export const App: React.FC = () => {
                 setIsHudCollapsed(true);
                 setIsZoneSelectorOpen(true);
               }}
-              disabled={files.length === 0 || isCleaning}
+              disabled={activeDisplayFiles.length === 0 || isCleaning}
               className="glass-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl text-cyan-200 hover:text-white text-[11px] font-semibold disabled:opacity-50"
               title="Selection Box ile ekranda birden fazla alan seçip 'buraya oyunlar', 'buraya klasörler' gibi özel istekler tanımlayın"
             >
@@ -771,7 +788,7 @@ export const App: React.FC = () => {
       <div className="pointer-events-auto">
         <ZoneSelectorOverlay
           isOpen={isZoneSelectorOpen}
-          files={files}
+          files={activeDisplayFiles}
           activeZones={activeZones}
           currentDisplay={currentDisplay}
           onClose={() => setIsZoneSelectorOpen(false)}
@@ -782,6 +799,7 @@ export const App: React.FC = () => {
           isOpen={isScreenModalOpen}
           displays={displays}
           currentDisplay={currentDisplay}
+          files={files}
           onSelectDisplay={handleSelectDisplay}
           onClose={() => setIsScreenModalOpen(false)}
         />
@@ -789,7 +807,7 @@ export const App: React.FC = () => {
         <PreviewModal
           isOpen={isPreviewOpen}
           onClose={() => setIsPreviewOpen(false)}
-          files={files}
+          files={activeDisplayFiles}
           onUpdateFile={handleUpdateFile}
           onConfirmAndClean={handleStartCleaning}
         />
