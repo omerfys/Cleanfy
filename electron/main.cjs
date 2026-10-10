@@ -22,6 +22,7 @@ function createMainWindow() {
     hasShadow: false,
     backgroundColor: '#00000000',
     title: 'Cleanfy - Masaüstü Robot Süpürgesi',
+    icon: path.join(__dirname, '../build/icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
