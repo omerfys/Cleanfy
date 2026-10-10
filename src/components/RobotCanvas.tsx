@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import Matter from 'matter-js';
 import { FileItem, RobotState } from '../types';
 import { CATEGORY_COLORS } from '../services/categorization';
+import { CustomZone, ZoneTargetsMap, ZONE_COLOR_THEMES } from '../services/zoneOrganizer';
 
 interface RobotCanvasProps {
   files: FileItem[];
@@ -11,7 +12,8 @@ interface RobotCanvasProps {
   onFileCollision?: (file: FileItem) => void;
   isOverlay?: boolean;
   viewMode?: 'clone' | 'transparent';
-  zoneTargets?: Record<string, { x: number; y: number }>;
+  zoneTargets?: ZoneTargetsMap;
+  activeZones?: CustomZone[];
   activeZoneHighlight?: { x: number; y: number; width: number; height: number; label: string } | null;
   filePositionsRef?: React.MutableRefObject<Record<string, { x: number; y: number }>>;
 }
@@ -57,6 +59,7 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
   cleanedFileIds,
   viewMode = 'clone',
   zoneTargets,
+  activeZones,
   activeZoneHighlight,
   filePositionsRef,
 }) => {
@@ -79,8 +82,11 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
   const viewModeRef = useRef<'clone' | 'transparent'>(viewMode);
   viewModeRef.current = viewMode;
 
-  const zoneTargetsRef = useRef<Record<string, { x: number; y: number }> | undefined>(zoneTargets);
+  const zoneTargetsRef = useRef<ZoneTargetsMap | undefined>(zoneTargets);
   zoneTargetsRef.current = zoneTargets;
+
+  const activeZonesRef = useRef<CustomZone[] | undefined>(activeZones);
+  activeZonesRef.current = activeZones;
 
   const activeZoneHighlightRef = useRef(activeZoneHighlight);
   activeZoneHighlightRef.current = activeZoneHighlight;
@@ -312,49 +318,88 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
       const st = robotStateRef.current;
       const curActiveFileId = activeFileIdRef.current;
       const zh = activeZoneHighlightRef.current;
+      const az = activeZonesRef.current;
       wanderT++;
 
-      // ── Aktif Özel Alan Çerçevesi (Selection Box Hedef Gösterimi) ──
-      if (zh) {
+      const allZonesToDraw: Array<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        label: string;
+        theme: any;
+      }> = [];
+
+      if (az && az.length > 0) {
+        az.forEach((z, i) => {
+          const theme = z.colorTheme || ZONE_COLOR_THEMES[z.colorIndex % ZONE_COLOR_THEMES.length] || ZONE_COLOR_THEMES[i % ZONE_COLOR_THEMES.length];
+          allZonesToDraw.push({
+            x: z.x,
+            y: z.y,
+            width: z.width,
+            height: z.height,
+            label: z.label ? (z.matchedCount !== undefined ? `${z.label} (${z.matchedCount})` : z.label) : `Bölge ${i + 1}`,
+            theme,
+          });
+        });
+      } else if (zh) {
+        allZonesToDraw.push({
+          x: zh.x,
+          y: zh.y,
+          width: zh.width,
+          height: zh.height,
+          label: zh.label,
+          theme: ZONE_COLOR_THEMES[0],
+        });
+      }
+
+      // ── Aktif Özel Alan Çerçeveleri (Çoklu Bölge & Farklı Renk Paletleri) ──
+      allZonesToDraw.forEach(zoneItem => {
+        const { x: zx, y: zy, width: zw, height: zhH, label: zLabel, theme: zTheme } = zoneItem;
         ctx.save();
-        ctx.fillStyle = 'rgba(6, 182, 212, 0.07)';
-        ctx.strokeStyle = 'rgba(34, 211, 238, 0.55)';
+        ctx.fillStyle = zTheme.bgFill;
+        ctx.strokeStyle = zTheme.border;
         ctx.lineWidth = 1.8;
         ctx.setLineDash([8, 6]);
         ctx.lineDashOffset = -t * 0.6;
         ctx.beginPath();
-        ctx.roundRect(zh.x, zh.y, zh.width, zh.height, 14);
+        ctx.roundRect(zx, zy, zw, zhH, 14);
         ctx.fill();
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Alan etiketi
-        ctx.fillStyle = 'rgba(11, 19, 38, 0.85)';
-        ctx.strokeStyle = 'rgba(34, 211, 238, 0.45)';
-        ctx.lineWidth = 1;
-        const badgeW = Math.min(zh.width, 190);
-        const badgeX = zh.x + 10;
-        const badgeY = Math.max(8, zh.y - 26);
+        // Üzerinde ne koy dediği yazan Glassmorphism rozet
+        ctx.fillStyle = zTheme.badgeBg;
+        ctx.strokeStyle = zTheme.badgeBorder;
+        ctx.lineWidth = 1.2;
+        ctx.shadowColor = zTheme.badgeGlow;
+        ctx.shadowBlur = 8;
+        const textW = Math.max(120, ctx.measureText(`🎯 ${zLabel}`).width + 24);
+        const badgeW = Math.min(zw - 12, textW);
+        const badgeX = zx + 10;
+        const badgeY = Math.max(8, zy - 26);
         ctx.beginPath();
-        ctx.roundRect(badgeX, badgeY, badgeW, 22, 8);
+        ctx.roundRect(badgeX, badgeY, badgeW, 22, 7);
         ctx.fill();
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
         ctx.font = 'bold 10px "Segoe UI", sans-serif';
-        ctx.fillStyle = '#67e8f9';
+        ctx.fillStyle = zTheme.badgeText;
         ctx.textAlign = 'left';
-        ctx.fillText(`🎯 ${zh.label}`, badgeX + 8, badgeY + 14);
+        ctx.fillText(`🎯 ${zLabel}`, badgeX + 8, badgeY + 15);
         ctx.restore();
-      }
+      });
 
       // ── Hedef Seçimi (Kesintisiz ve Akıcı Gezinti) ──
       const pickNewWanderTarget = () => {
         wanderT = 0;
-        if (zh) {
-          // Özel alan düzenlenirken robot o alanın içinde devriye gezsin
+        if (allZonesToDraw.length > 0) {
+          // Özel alanlar varsa robot bu alanların içinde devriye gezsin
+          const targetZone = allZonesToDraw[Math.floor(Math.random() * allZonesToDraw.length)];
           targetRef.current = {
-            x: Math.max(70, Math.min(W - 70, zh.x + 30 + Math.random() * Math.max(40, zh.width - 60))),
-            y: Math.max(70, Math.min(H - 110, zh.y + 30 + Math.random() * Math.max(40, zh.height - 60))),
+            x: Math.max(70, Math.min(W - 70, targetZone.x + 30 + Math.random() * Math.max(40, targetZone.width - 60))),
+            y: Math.max(70, Math.min(H - 110, targetZone.y + 30 + Math.random() * Math.max(40, targetZone.height - 60))),
           };
           return;
         }
@@ -574,8 +619,13 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
         ctx.rotate(ang);
 
         if (isT || isGlidingToZone) {
-          ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 14;
-          ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
+          const glowColor = zt?.colorTheme?.primary || '#38bdf8';
+          ctx.shadowColor = glowColor; ctx.shadowBlur = 14;
+          ctx.strokeStyle = zt?.colorTheme?.secondary || '#38bdf8'; ctx.lineWidth = 2;
+          ctx.strokeRect(-25, -31, 50, 50); ctx.shadowBlur = 0;
+        } else if (zt?.colorTheme) {
+          ctx.strokeStyle = zt.colorTheme.border; ctx.lineWidth = 1.4;
+          ctx.shadowColor = zt.colorTheme.badgeGlow; ctx.shadowBlur = 6;
           ctx.strokeRect(-25, -31, 50, 50); ctx.shadowBlur = 0;
         } else if (hit) {
           ctx.strokeStyle = 'rgba(56,189,248,0.6)'; ctx.lineWidth = 1.5;

@@ -5,7 +5,11 @@ import { ReportModal } from './components/ReportModal';
 import { UndoModal } from './components/UndoModal';
 import { Celebration } from './components/Celebration';
 import { ZoneSelectorOverlay } from './components/ZoneSelectorOverlay';
-import { computeZoneArrangement, ZoneRect } from './services/zoneOrganizer';
+import {
+  computeMultiZoneArrangement,
+  CustomZone,
+  ZoneTargetsMap,
+} from './services/zoneOrganizer';
 import { exportToHtml } from './services/exportService';
 import { FileItem, ExistingFolder, CleaningMode, RobotState, CleaningStats, ReportItem, UndoSession } from './types';
 import { 
@@ -51,10 +55,10 @@ export const App: React.FC = () => {
   const [isHudCollapsed, setIsHudCollapsed] = useState<boolean>(true);
   const [cleanedFileIds, setCleanedFileIds] = useState<Set<string>>(new Set());
 
-  // Özel Alan Seçimi (Selection Box) & Bölgesel Yerleşim Durumları
+  // Özel Alan Seçimi (Selection Box) & Çoklu Bölgesel Yerleşim Durumları
   const [isZoneSelectorOpen, setIsZoneSelectorOpen] = useState<boolean>(false);
-  const [zoneTargets, setZoneTargets] = useState<Record<string, { x: number; y: number; zoneLabel?: string }>>({});
-  const [activeZoneHighlight, setActiveZoneHighlight] = useState<{ x: number; y: number; width: number; height: number; label: string } | null>(null);
+  const [activeZones, setActiveZones] = useState<CustomZone[]>([]);
+  const [zoneTargets, setZoneTargets] = useState<ZoneTargetsMap>({});
   const filePositionsRef = useRef<Record<string, { x: number; y: number }>>({});
 
   // Modallar
@@ -355,44 +359,34 @@ export const App: React.FC = () => {
     }
   };
 
-  // Özel Selection Box İsteğini Uygula
-  const handleApplyCustomZone = (zone: ZoneRect, prompt: string) => {
-    const result = computeZoneArrangement(
+  // Çoklu Alan Güncellemesi (Ekleme / Silme / Düzenleme)
+  const handleUpdateZones = (newZones: CustomZone[]) => {
+    if (newZones.length === 0) {
+      setActiveZones([]);
+      setZoneTargets({});
+      return;
+    }
+
+    const { targets, zonesWithCounts } = computeMultiZoneArrangement(
       files,
-      zone,
-      prompt,
+      newZones,
       filePositionsRef.current,
-      zoneTargets,
       window.innerWidth,
       window.innerHeight
     );
 
-    if (result.matchedCount === 0) return;
+    setActiveZones(zonesWithCounts);
+    setZoneTargets(targets);
 
-    setZoneTargets(prev => ({
-      ...prev,
-      ...result.targets,
-    }));
-
-    setActiveZoneHighlight({
-      x: zone.x,
-      y: zone.y,
-      width: zone.width,
-      height: zone.height,
-      label: `${result.label} (${result.matchedCount})`,
-    });
-
-    setIsZoneSelectorOpen(false);
     setRobotState('Düzenleme');
-
     setTimeout(() => {
       setRobotState('Dolaşma');
     }, 3200);
   };
 
-  const handleClearZoneTargets = () => {
+  const handleClearZones = () => {
+    setActiveZones([]);
     setZoneTargets({});
-    setActiveZoneHighlight(null);
   };
 
   const handleMouseEnterControls = () => {
@@ -416,7 +410,7 @@ export const App: React.FC = () => {
           cleanedFileIds={cleanedFileIds}
           isOverlay={true}
           zoneTargets={zoneTargets}
-          activeZoneHighlight={activeZoneHighlight}
+          activeZones={activeZones}
           filePositionsRef={filePositionsRef}
         />
       </div>
@@ -565,7 +559,7 @@ export const App: React.FC = () => {
             )}
           </div>
 
-          {/* Özel Alan Seçimi (Selection Box ile Bölgesel Dizilim) */}
+          {/* Özel Alan Seçimi (Selection Box ile Çoklu Bölgesel Dizilim) */}
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => {
@@ -574,17 +568,19 @@ export const App: React.FC = () => {
               }}
               disabled={files.length === 0 || isCleaning}
               className="glass-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl text-cyan-200 hover:text-white text-[11px] font-semibold disabled:opacity-50"
-              title="Selection Box ile ekranda bir alan seçip 'buraya sadece oyunları koy' veya 'sadece klasörleri koy' gibi özel istek verin"
+              title="Selection Box ile ekranda birden fazla alan seçip 'buraya oyunlar', 'buraya klasörler' gibi özel istekler tanımlayın"
             >
               <Crosshair className="w-3.5 h-3.5 text-cyan-300" />
-              <span>Alan Seç & Özel Diz</span>
+              <span>
+                {activeZones.length > 0 ? `Alanlar (${activeZones.length})` : 'Alan Seç & Özel Diz'}
+              </span>
             </button>
 
-            {Object.keys(zoneTargets).length > 0 && (
+            {activeZones.length > 0 && (
               <button
-                onClick={handleClearZoneTargets}
+                onClick={handleClearZones}
                 className="px-2 py-1.5 rounded-xl glass-icon-btn text-amber-300 hover:text-amber-100 !border-amber-400/30 text-[10px] font-semibold shrink-0"
-                title="Özel Bölge Sabitlemelerini Serbest Bırak"
+                title="Tüm Özel Alanları ve Sabitlemeleri Sıfırla"
               >
                 Sıfırla
               </button>
@@ -631,8 +627,9 @@ export const App: React.FC = () => {
         <ZoneSelectorOverlay
           isOpen={isZoneSelectorOpen}
           files={files}
+          activeZones={activeZones}
           onClose={() => setIsZoneSelectorOpen(false)}
-          onApplyZone={handleApplyCustomZone}
+          onUpdateZones={handleUpdateZones}
         />
 
         <PreviewModal
