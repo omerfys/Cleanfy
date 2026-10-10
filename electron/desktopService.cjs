@@ -1012,6 +1012,185 @@ function formatBytes(bytes, decimals = 2) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
+/**
+ * Windows Explorer masaüstündeki gerçek simgeleri (IFolderView::SelectAndPositionItems kullanarak)
+ * kullanıcının seçtiği ekran koordinatlarına (x, y) topluca yerleştirir.
+ * @param {Record<string, { x: number, y: number }>} positionsMap
+ * @returns {Promise<{ success: boolean, movedCount: number }>}
+ */
+async function applyDesktopPositions(positionsMap) {
+  if (process.platform !== 'win32' || !positionsMap || Object.keys(positionsMap).length === 0) {
+    return { success: false, movedCount: 0 };
+  }
+
+  try {
+    const psScript = `
+param([string]$JsonFile)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+$code = @"
+using System;
+using System.Runtime.InteropServices;
+using System.Drawing;
+
+[ComImport]
+[Guid("6D5140C1-7436-11CE-8034-00AA006009FA")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IServiceProvider {
+    [PreserveSig] int QueryService(ref Guid guidService, ref Guid riid, [MarshalAs(UnmanagedType.Interface)] out object ppvObject);
+}
+
+[ComImport]
+[Guid("000214E2-0000-0000-C000-000000000046")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IShellBrowser {
+    void V0(); void V1(); void V2(); void V3(); void V4(); void V5(); void V6(); void V7(); void V8(); void V9(); void V10(); void V11();
+    [PreserveSig] int QueryActiveShellView([MarshalAs(UnmanagedType.Interface)] out object ppshv);
+}
+
+[ComImport]
+[Guid("cde725b0-ccc9-4519-917e-325d72fab4ce")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IFolderView {
+    [PreserveSig] int GetCurrentViewMode(out uint pViewMode);
+    [PreserveSig] int SetCurrentViewMode(uint ViewMode);
+    [PreserveSig] int GetFolder(ref Guid riid, [MarshalAs(UnmanagedType.Interface)] out object ppv);
+    [PreserveSig] int Item(int iItemIndex, out IntPtr ppidl);
+    [PreserveSig] int ItemCount(uint uFlags, out int pcItems);
+    [PreserveSig] int Items(uint uFlags, ref Guid riid, [MarshalAs(UnmanagedType.Interface)] out object ppv);
+    [PreserveSig] int GetSelectionMarkedItem(out int piItem);
+    [PreserveSig] int GetFocusedItem(out int piItem);
+    [PreserveSig] int GetItemPosition(IntPtr pidl, out POINT ppt);
+    [PreserveSig] int GetSpacing(out POINT ppt);
+    [PreserveSig] int GetDefaultSpacing(out POINT ppt);
+    [PreserveSig] int GetAutoArrange();
+    [PreserveSig] int SelectItem(int iItem, uint dwFlags);
+    [PreserveSig] int SelectAndPositionItems(uint cpidl, [In, MarshalAs(UnmanagedType.LPArray)] IntPtr[] apidl, [In, MarshalAs(UnmanagedType.LPArray)] POINT[] apt, uint dwFlags);
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct POINT {
+    public int X;
+    public int Y;
+}
+
+public class DesktopArranger {
+    public static object GetFolderView(object desktopWin) {
+        if (desktopWin == null) return null;
+        IServiceProvider sp = desktopWin as IServiceProvider;
+        if (sp == null) return null;
+        Guid SID_STopLevelBrowser = new Guid("4C96BE40-915C-11CF-99D3-00AA004AE837");
+        Guid IID_IShellBrowser = new Guid("000214E2-0000-0000-C000-000000000046");
+        object sbObj;
+        if (sp.QueryService(ref SID_STopLevelBrowser, ref IID_IShellBrowser, out sbObj) != 0) return null;
+        IShellBrowser sb = sbObj as IShellBrowser;
+        object svObj;
+        if (sb.QueryActiveShellView(out svObj) != 0) return null;
+        return svObj as IFolderView;
+    }
+
+    public static int PositionItems(object fvObj, IntPtr[] apidl, POINT[] apt) {
+        IFolderView fv = fvObj as IFolderView;
+        if (fv == null) return -1;
+        return fv.SelectAndPositionItems((uint)apidl.Length, apidl, apt, 1);
+    }
+}
+"@
+
+try {
+    Add-Type -TypeDefinition $code -ReferencedAssemblies "System.Windows.Forms", "System.Drawing" -ErrorAction Stop
+} catch {}
+
+$shell = New-Object -ComObject Shell.Application
+$desktopWin = $shell.Windows().FindWindowSW([ref]0, [ref]0, 8, [ref]0, 1)
+if (-not $desktopWin) { exit 1 }
+
+$fv = [DesktopArranger]::GetFolderView($desktopWin)
+if (-not $fv) { exit 1 }
+
+$jsonContent = [System.IO.File]::ReadAllText($JsonFile, [System.Text.Encoding]::UTF8)
+$posDict = $jsonContent | ConvertFrom-Json
+
+$items = $desktopWin.Document.Folder.Items()
+$total = $items.Count
+
+$pidlList = New-Object System.Collections.ArrayList
+$pointList = New-Object System.Collections.ArrayList
+
+for ($i = 0; $i -lt $total; $i++) {
+    $item = $items.Item($i)
+    $name = [string]$item.Name
+    $path = [string]$item.Path
+
+    $target = $null
+    if ($path -and ($posDict.PSObject.Properties[$path])) {
+        $target = $posDict.$path
+    } elseif ($name -and ($posDict.PSObject.Properties[$name])) {
+        $target = $posDict.$name
+    }
+
+    if ($target) {
+        $pidl = [IntPtr]::Zero
+        if ($fv.Item($i, [ref]$pidl) -eq 0) {
+            $pt = New-Object POINT
+            $pt.X = [int]$target.x
+            $pt.Y = [int]$target.y
+            [void]$pidlList.Add($pidl)
+            [void]$pointList.Add($pt)
+        }
+    }
+}
+
+if ($pidlList.Count -gt 0) {
+    $pArray = [IntPtr[]]$pidlList.ToArray([IntPtr])
+    $ptArray = [POINT[]]$pointList.ToArray([POINT])
+    $hr = [DesktopArranger]::PositionItems($fv, $pArray, $ptArray)
+    Write-Output "SUCCESS:$($pidlList.Count)"
+} else {
+    Write-Output "NOOP:0"
+}
+`;
+
+    const ts = Date.now();
+    const tempPsFile = path.join(os.tmpdir(), `cleanfy_apply_pos_${ts}.ps1`);
+    const tempJsonFile = path.join(os.tmpdir(), `cleanfy_apply_pos_${ts}.json`);
+
+    fs.writeFileSync(tempPsFile, '\uFEFF' + psScript, 'utf8');
+    fs.writeFileSync(tempJsonFile, JSON.stringify(positionsMap), 'utf8');
+
+    let output = '';
+    await new Promise((resolve) => {
+      execFile(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tempPsFile, '-JsonFile', tempJsonFile],
+        {
+          windowsHide: true,
+          timeout: 10000,
+        },
+        (err, stdout) => {
+          output = stdout || '';
+          resolve();
+        }
+      );
+    });
+
+    try { fs.unlinkSync(tempPsFile); } catch (e) {}
+    try { fs.unlinkSync(tempJsonFile); } catch (e) {}
+
+    const match = output.match(/SUCCESS:(\d+)/);
+    if (match) {
+      return { success: true, movedCount: parseInt(match[1], 10) };
+    }
+    return { success: false, movedCount: 0 };
+  } catch (err) {
+    console.error('applyDesktopPositions hatası:', err);
+    return { success: false, movedCount: 0 };
+  }
+}
+
 module.exports = {
   getRealDesktopPath,
   scanDesktop,
@@ -1019,4 +1198,5 @@ module.exports = {
   revertMoveHistory,
   calculateSha256,
   formatBytes,
+  applyDesktopPositions,
 };

@@ -1,6 +1,12 @@
 const { app, BrowserWindow, ipcMain, shell, screen } = require('electron');
 const path = require('path');
-const { getRealDesktopPath, scanDesktop, safelyMoveFile, revertMoveHistory } = require('./desktopService.cjs');
+const {
+  getRealDesktopPath,
+  scanDesktop,
+  safelyMoveFile,
+  revertMoveHistory,
+  applyDesktopPositions,
+} = require('./desktopService.cjs');
 
 let mainWindow = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -103,6 +109,11 @@ ipcMain.handle('desktop:openPath', async (_, targetPath) => {
   const p = targetPath || getRealDesktopPath();
   await shell.openPath(p);
   return true;
+});
+
+// Gerçek masaüstü simgelerini seçili alanlara göre yeniden konumlandır
+ipcMain.handle('desktop:applyPositions', async (_, positionsMap) => {
+  return applyDesktopPositions(positionsMap);
 });
 
 // Fare tıklama geçiş kontrolü

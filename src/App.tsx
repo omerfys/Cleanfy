@@ -378,6 +378,48 @@ export const App: React.FC = () => {
     setActiveZones(zonesWithCounts);
     setZoneTargets(targets);
 
+    // 1. Gerçek Windows masaüstündeki simgeleri doğrudan seçilen alan koordinatlarına yerleştir
+    const realDesktopPositions: Record<string, { x: number; y: number }> = {};
+    files.forEach(f => {
+      const t = targets[f.id];
+      if (t) {
+        realDesktopPositions[f.currentPath] = { x: t.x, y: t.y };
+        realDesktopPositions[f.name] = { x: t.x, y: t.y };
+      }
+    });
+
+    if (window.cleanfyApi?.applyDesktopPositions) {
+      window.cleanfyApi.applyDesktopPositions(realDesktopPositions).catch(err => {
+        console.warn('Masaüstü simge yerleştirme uyarısı:', err);
+      });
+    }
+
+    // 2. Dosyaların hedef kategorilerini ve gerçek hedef klasör yollarını seçilen alanlara göre güncelle
+    // Böylece robot süpürge düzenleme/temizleme yaptığında dosyalar simülasyonda kalmayıp o alanlara taşınır
+    const fileIdToZone = new Map<string, CustomZone>();
+    zonesWithCounts.forEach(zone => {
+      zone.matchedFileIds.forEach(id => {
+        fileIdToZone.set(id, zone);
+      });
+    });
+
+    setFiles(prevFiles =>
+      prevFiles.map(f => {
+        const assignedZone = fileIdToZone.get(f.id);
+        if (assignedZone) {
+          const cleanFolder = assignedZone.label.replace(/^[^\w\s\u00C0-\u017F]+/, '').trim() || 'Özel Düzenleme';
+          const newTargetPath = desktopPath ? `${desktopPath}\\${cleanFolder}\\${f.name}` : f.targetPath;
+          return {
+            ...f,
+            category: cleanFolder,
+            targetRelativePath: cleanFolder,
+            targetPath: newTargetPath,
+          };
+        }
+        return f;
+      })
+    );
+
     setRobotState('Düzenleme');
     setTimeout(() => {
       setRobotState('Dolaşma');
@@ -387,6 +429,9 @@ export const App: React.FC = () => {
   const handleClearZones = () => {
     setActiveZones([]);
     setZoneTargets({});
+    if (desktopPath) {
+      handleScan(desktopPath);
+    }
   };
 
   const handleMouseEnterControls = () => {

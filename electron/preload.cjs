@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('cleanfyApi', {
   moveFile: (desktopPath, fileItem) => ipcRenderer.invoke('desktop:moveFile', desktopPath, fileItem),
   revertMoves: (desktopPath, historyItems) => ipcRenderer.invoke('desktop:revert', desktopPath, historyItems),
   openDesktop: (targetPath) => ipcRenderer.invoke('desktop:openPath', targetPath),
+  applyDesktopPositions: (positionsMap) => ipcRenderer.invoke('desktop:applyPositions', positionsMap),
   
   // Şeffaf pencerede fare tıklamalarını arkadaki masaüstüne geçirme / yakalama
   setIgnoreMouse: (ignore) => ipcRenderer.invoke('window:setIgnoreMouse', ignore),

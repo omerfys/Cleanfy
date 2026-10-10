@@ -107,6 +107,7 @@ declare global {
       }>;
       revertMoves: (desktopPath: string, historyItems: any[]) => Promise<any[]>;
       openDesktop: (targetPath?: string) => Promise<boolean>;
+      applyDesktopPositions: (positionsMap: Record<string, { x: number; y: number }>) => Promise<{ success: boolean; movedCount: number }>;
       toggleOverlay: (enable: boolean) => Promise<boolean>;
       setIgnoreMouse: (ignore: boolean) => Promise<void>;
       minimizeWindow: () => Promise<void>;
