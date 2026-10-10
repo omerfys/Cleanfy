@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🤖 Cleanfy — Akıllı Masaüstü Robot Süpürgesi & Fizik Tabanlı Düzenleyici
+# Cleanfy — Akıllı Masaüstü Robot Süpürgesi & Fizik Tabanlı Düzenleyici
 
 <p align="center">
   <strong>Windows 10 ve 11 için fizik simülasyonlu, LiDAR taramalı ve %100 güvenli masaüstü düzenleme robotu.</strong><br>
@@ -61,7 +61,7 @@ Klasik masaüstü temizleyiciler ve düzenleme betikleri genellikle sıkıcı, r
 
 ## ✨ Özellikler (Features)
 
-- 🤖 **Gerçekçi 2D/2.5D Robot Süpürge Simülasyonu:**
+- 🧹 **Gerçekçi 2D/2.5D Robot Süpürge Simülasyonu:**
   - Bağımsız dönen üst **LiDAR lazer kubbesi** ve mavi tarama demeti.
   - Ön optik ve ultrasonik mesafe algılama sensörleri.
   - Yaylı ve esnek **ön çarpışma tamponu (bumper)**.
@@ -99,7 +99,7 @@ Cleanfy, tüm masaüstünü toptan temizlemek yerine belirli bölgeleri özelle�
 │                                           │  SELECTION BOX   │  │
 │  [Fotoğraflar]                            │  "Sadece Oyunlar"│  │
 │                                           │  🎮 Cyberpunk    │  │
-│             🤖 Robot Süpürge              │  🎮 Valorant     │  │
+│               Robot Süpürge               │  🎮 Valorant     │  │
 │                (Devriye)                  │  🎮 Stardew      │  │
 │                                           └──────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘

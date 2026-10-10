@@ -55,7 +55,7 @@ export const Celebration: React.FC<CelebrationProps> = ({
         </div>
 
         <h2 className="text-xl font-bold text-white mb-1">
-          Masaüstü Temizliği Tamamlandı! 🤖
+          Masaüstü Temizliği Tamamlandı!
         </h2>
         <p className="text-xs text-slate-400 mb-5">
           Masaüstündeki dosyaların Türkçe kategorilere düzenlenmesi başarıyla bitti.

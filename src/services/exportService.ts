@@ -177,7 +177,7 @@ export function exportToHtml(items: ReportItem[], stats: CleaningStats, desktopP
 <body>
   <div class="container">
     <div class="header">
-      <h1>🤖 Cleanfy - Masaüstü Temizlik Raporu</h1>
+      <h1>Cleanfy - Masaüstü Temizlik Raporu</h1>
       <div class="meta">
         <div><strong>Masaüstü Dizini:</strong> ${escapeHtml(desktopPath)}</div>
         <div><strong>Rapor Tarihi:</strong> ${new Date().toLocaleString('tr-TR')}</div>
