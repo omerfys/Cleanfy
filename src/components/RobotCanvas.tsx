@@ -11,7 +11,6 @@ interface RobotCanvasProps {
   cleanedFileIds?: Set<string>;
   onFileCollision?: (file: FileItem) => void;
   isOverlay?: boolean;
-  viewMode?: 'clone' | 'transparent';
   zoneTargets?: ZoneTargetsMap;
   activeZones?: CustomZone[];
   activeZoneHighlight?: { x: number; y: number; width: number; height: number; label: string } | null;
@@ -57,7 +56,6 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
   robotState,
   activeFileId,
   cleanedFileIds,
-  viewMode = 'transparent',
   zoneTargets,
   activeZones,
   activeZoneHighlight,
@@ -78,9 +76,6 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
 
   const cleanedFileIdsRef = useRef<Set<string> | undefined>(cleanedFileIds);
   cleanedFileIdsRef.current = cleanedFileIds;
-
-  const viewModeRef = useRef<'clone' | 'transparent'>(viewMode);
-  viewModeRef.current = viewMode;
 
   const zoneTargetsRef = useRef<ZoneTargetsMap | undefined>(zoneTargets);
   zoneTargetsRef.current = zoneTargets;
@@ -113,14 +108,11 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
     canvas.width = W;
     canvas.height = H;
 
-    // Masaüstü Duvar Kağıdı (Yalnızca klon modunda gerekirse yüklenir)
-    let wpImg: HTMLImageElement | null = null;
+    // Masaüstü Duvar Kağıdı (Kopya Modu - Her Zaman Aktif)
+    const wpImg = new Image();
+    wpImg.src = './wallpaper.png';
     let wpReady = false;
-    if (viewModeRef.current === 'clone') {
-      wpImg = new Image();
-      wpImg.src = './wallpaper.png';
-      wpImg.onload = () => { wpReady = true; };
-    }
+    wpImg.onload = () => { wpReady = true; };
 
     // Matter.js Fizik Motoru
     const { Engine, Runner, Bodies, Composite, Events, Body, Vector } = Matter;
@@ -314,9 +306,13 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
         timeRef.current++;
         const t = timeRef.current;
 
-      // Zemin
-      if (viewModeRef.current === 'clone' && wpReady && wpImg) ctx.drawImage(wpImg, 0, 0, W, H);
-      else ctx.clearRect(0, 0, W, H);
+      // Zemin: Kopya Modu (Masaüstü Duvar Kağıdı)
+      if (wpReady) {
+        ctx.drawImage(wpImg, 0, 0, W, H);
+      } else {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, W, H);
+      }
 
       const st = robotStateRef.current;
       const curActiveFileId = activeFileIdRef.current;
