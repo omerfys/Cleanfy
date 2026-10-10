@@ -82,6 +82,27 @@ export interface UndoSession {
   }>;
 }
 
+export interface DisplayInfo {
+  id: number;
+  index: number;
+  name: string;
+  positionHint?: string;
+  bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  workArea: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  scaleFactor: number;
+  isPrimary: boolean;
+}
+
 // Window cleanfyApi type tanımı
 declare global {
   interface Window {
@@ -108,6 +129,10 @@ declare global {
       revertMoves: (desktopPath: string, historyItems: any[]) => Promise<any[]>;
       openDesktop: (targetPath?: string) => Promise<boolean>;
       applyDesktopPositions: (positionsMap: Record<string, { x: number; y: number }>) => Promise<{ success: boolean; movedCount: number }>;
+      getDisplays: () => Promise<DisplayInfo[]>;
+      switchDisplay: (displayId: number) => Promise<DisplayInfo | null>;
+      getWallpaper: () => Promise<string | null>;
+      onDisplaysChanged: (callback: (displays: DisplayInfo[]) => void) => () => void;
       toggleOverlay: (enable: boolean) => Promise<boolean>;
       setIgnoreMouse: (ignore: boolean) => Promise<void>;
       minimizeWindow: () => Promise<void>;

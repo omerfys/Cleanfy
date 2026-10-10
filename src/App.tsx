@@ -5,13 +5,14 @@ import { ReportModal } from './components/ReportModal';
 import { UndoModal } from './components/UndoModal';
 import { Celebration } from './components/Celebration';
 import { ZoneSelectorOverlay } from './components/ZoneSelectorOverlay';
+import { ScreenSelectorModal } from './components/ScreenSelectorModal';
 import {
   computeMultiZoneArrangement,
   CustomZone,
   ZoneTargetsMap,
 } from './services/zoneOrganizer';
 import { exportToHtml } from './services/exportService';
-import { FileItem, ExistingFolder, CleaningMode, RobotState, CleaningStats, ReportItem, UndoSession } from './types';
+import { FileItem, ExistingFolder, CleaningMode, RobotState, CleaningStats, ReportItem, UndoSession, DisplayInfo } from './types';
 import { 
   Bot, 
   Search, 
@@ -29,7 +30,8 @@ import {
   ChevronDown, 
   ChevronUp,
   Cpu,
-  Crosshair
+  Crosshair,
+  Monitor
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -40,6 +42,12 @@ export const App: React.FC = () => {
   const [mode, setMode] = useState<CleaningMode>('safe_clean');
   const [robotState, setRobotState] = useState<RobotState>('Bekleme');
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
+
+  // Çoklu Monitör ve Ekran Seçimi Durumları
+  const [displays, setDisplays] = useState<DisplayInfo[]>([]);
+  const [currentDisplay, setCurrentDisplay] = useState<DisplayInfo | null>(null);
+  const [isScreenModalOpen, setIsScreenModalOpen] = useState<boolean>(false);
+  const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
 
   // İşlem Durumları
   const [isScanning, setIsScanning] = useState<boolean>(false);
@@ -67,7 +75,7 @@ export const App: React.FC = () => {
   const [isUndoOpen, setIsUndoOpen] = useState<boolean>(false);
   const [isCelebrationOpen, setIsCelebrationOpen] = useState<boolean>(false);
 
-  const hasAnyModalOpen = isPreviewOpen || isReportOpen || isUndoOpen || isCelebrationOpen || isZoneSelectorOpen;
+  const hasAnyModalOpen = isPreviewOpen || isReportOpen || isUndoOpen || isCelebrationOpen || isZoneSelectorOpen || isScreenModalOpen;
 
   // Rapor ve Geri Alma Geçmişi
   const [reportItems, setReportItems] = useState<ReportItem[]>([]);
@@ -96,7 +104,7 @@ export const App: React.FC = () => {
     }
   }, [hasAnyModalOpen]);
 
-  // Başlangıç: Gerçek Masaüstünü Tespit Et ve Otomatik Tara
+  // Başlangıç: Gerçek Masaüstünü Tespit Et, Monitörleri ve Duvar Kağıdını Yükle
   useEffect(() => {
     async function initDesktop() {
       if (window.cleanfyApi) {
@@ -107,9 +115,36 @@ export const App: React.FC = () => {
         } catch (err) {
           console.error('Masaüstü yolu alınamadı:', err);
         }
+
+        try {
+          const dispList = await window.cleanfyApi.getDisplays();
+          if (dispList && dispList.length > 0) {
+            setDisplays(dispList);
+            const primary = dispList.find(d => d.isPrimary) || dispList[0];
+            setCurrentDisplay(primary);
+          }
+        } catch (err) {
+          console.error('Ekran listesi alınamadı:', err);
+        }
+
+        try {
+          const wp = await window.cleanfyApi.getWallpaper();
+          if (wp) setWallpaperUrl(wp);
+        } catch (err) {}
       }
     }
     initDesktop();
+
+    if (window.cleanfyApi?.onDisplaysChanged) {
+      const unsub = window.cleanfyApi.onDisplaysChanged((updated) => {
+        setDisplays(updated);
+        setCurrentDisplay(prev => {
+          if (!prev) return updated.find(d => d.isPrimary) || updated[0];
+          return updated.find(d => d.id === prev.id) || updated[0];
+        });
+      });
+      return () => unsub();
+    }
   }, []);
 
   // Masaüstünü Tara Fonksiyonu
@@ -359,6 +394,36 @@ export const App: React.FC = () => {
     }
   };
 
+  // Çoklu Monitör Değişimi: Seçilen Ekranın Boyutlarına ve Masaüstüne Uyarla
+  const handleSelectDisplay = async (displayId: number) => {
+    if (window.cleanfyApi?.switchDisplay) {
+      try {
+        const switched = await window.cleanfyApi.switchDisplay(displayId);
+        if (switched) {
+          setCurrentDisplay(switched);
+          const wp = await window.cleanfyApi.getWallpaper?.();
+          if (wp) setWallpaperUrl(wp);
+
+          // Eğer seçili alanlar varsa yeni ekranın boyutlarına göre uyarla
+          if (activeZones.length > 0) {
+            const { targets, zonesWithCounts } = computeMultiZoneArrangement(
+              files,
+              activeZones,
+              filePositionsRef.current,
+              switched.bounds.width,
+              switched.bounds.height
+            );
+            setActiveZones(zonesWithCounts);
+            setZoneTargets(targets);
+          }
+        }
+      } catch (err) {
+        console.error('Ekran değiştirme hatası:', err);
+      }
+    }
+    setIsScreenModalOpen(false);
+  };
+
   // Çoklu Alan Güncellemesi (Ekleme / Silme / Düzenleme)
   const handleUpdateZones = (newZones: CustomZone[]) => {
     if (newZones.length === 0) {
@@ -367,24 +432,32 @@ export const App: React.FC = () => {
       return;
     }
 
+    const screenW = currentDisplay?.bounds.width || window.innerWidth || 1920;
+    const screenH = currentDisplay?.bounds.height || window.innerHeight || 1080;
+
     const { targets, zonesWithCounts } = computeMultiZoneArrangement(
       files,
       newZones,
       filePositionsRef.current,
-      window.innerWidth,
-      window.innerHeight
+      screenW,
+      screenH
     );
 
     setActiveZones(zonesWithCounts);
     setZoneTargets(targets);
 
-    // 1. Gerçek Windows masaüstündeki simgeleri doğrudan seçilen alan koordinatlarına yerleştir
+    // 1. Gerçek Windows masaüstündeki simgeleri doğrudan seçilen alan ve ekran koordinatlarına yerleştir
     const realDesktopPositions: Record<string, { x: number; y: number }> = {};
+    const screenOffsetX = currentDisplay?.bounds.x ?? 0;
+    const screenOffsetY = currentDisplay?.bounds.y ?? 0;
+
     files.forEach(f => {
       const t = targets[f.id];
       if (t) {
-        realDesktopPositions[f.currentPath] = { x: t.x, y: t.y };
-        realDesktopPositions[f.name] = { x: t.x, y: t.y };
+        const virtualX = Math.round(t.x + screenOffsetX);
+        const virtualY = Math.round(t.y + screenOffsetY);
+        realDesktopPositions[f.currentPath] = { x: virtualX, y: virtualY };
+        realDesktopPositions[f.name] = { x: virtualX, y: virtualY };
       }
     });
 
@@ -457,6 +530,8 @@ export const App: React.FC = () => {
           zoneTargets={zoneTargets}
           activeZones={activeZones}
           filePositionsRef={filePositionsRef}
+          currentDisplay={currentDisplay}
+          wallpaperUrl={wallpaperUrl}
         />
       </div>
 
@@ -481,6 +556,12 @@ export const App: React.FC = () => {
           <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 whitespace-nowrap">
             {robotState}
           </span>
+          {currentDisplay && (
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30 whitespace-nowrap flex items-center gap-1">
+              <Monitor className="w-2.5 h-2.5" />
+              <span>Ekran {currentDisplay.index}</span>
+            </span>
+          )}
           <ChevronDown className="w-3.5 h-3.5 text-slate-300 group-hover:translate-y-0.5 transition-transform shrink-0" />
         </div>
 
@@ -534,8 +615,27 @@ export const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Masaüstü Yolu ve Mini Sayaçlar */}
+          {/* Monitör / Ekran Seçimi ve Masaüstü Yolu */}
           <div className="flex items-center justify-between gap-1.5 text-[10px]">
+            <button
+              onClick={() => setIsScreenModalOpen(true)}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg glass-pill text-cyan-200 hover:text-white hover:!border-cyan-400/40 transition-colors cursor-pointer shrink-0"
+              title="Monitör / Masaüstü Seç (Ekran 1, Ekran 2, Ekran 3)"
+            >
+              <Monitor className="w-3 h-3 text-cyan-400 shrink-0" />
+              <span className="font-semibold truncate">
+                {currentDisplay ? `Ekran ${currentDisplay.index}` : 'Ekran 1'}
+              </span>
+              <span className="font-mono text-[9px] text-cyan-300/80">
+                ({currentDisplay ? `${currentDisplay.bounds.width}×${currentDisplay.bounds.height}` : '1920×1080'})
+              </span>
+              {displays.length > 1 && (
+                <span className="text-[9px] px-1 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono border border-cyan-500/30">
+                  {displays.length}
+                </span>
+              )}
+            </button>
+
             <div className="flex items-center gap-1 px-2 py-1 rounded-lg glass-pill text-slate-300 font-mono truncate flex-1" title={desktopPath}>
               <Folder className="w-3 h-3 text-cyan-400 shrink-0" />
               <span className="truncate">{desktopPath || 'Masaüstü...'}</span>
@@ -667,14 +767,23 @@ export const App: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. MODALLAR (ÖNİZLEME, RAPOR, GERİ ALMA, KUTLAMA, ALAN SEÇİMİ) */}
+      {/* 3. MODALLAR (ÖNİZLEME, RAPOR, GERİ ALMA, KUTLAMA, ALAN SEÇİMİ, EKRAN SEÇİMİ) */}
       <div className="pointer-events-auto">
         <ZoneSelectorOverlay
           isOpen={isZoneSelectorOpen}
           files={files}
           activeZones={activeZones}
+          currentDisplay={currentDisplay}
           onClose={() => setIsZoneSelectorOpen(false)}
           onUpdateZones={handleUpdateZones}
+        />
+
+        <ScreenSelectorModal
+          isOpen={isScreenModalOpen}
+          displays={displays}
+          currentDisplay={currentDisplay}
+          onSelectDisplay={handleSelectDisplay}
+          onClose={() => setIsScreenModalOpen(false)}
         />
 
         <PreviewModal

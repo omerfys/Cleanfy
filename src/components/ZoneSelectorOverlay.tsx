@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileItem } from '../types';
+import { FileItem, DisplayInfo } from '../types';
 import {
   ZONE_PRESETS,
   ZoneRect,
@@ -7,12 +7,13 @@ import {
   ZONE_COLOR_THEMES,
   matchFilesByCustomRequest,
 } from '../services/zoneOrganizer';
-import { Sparkles, X, Crosshair, RotateCcw, CheckCircle2, Plus, Check } from 'lucide-react';
+import { Sparkles, X, Crosshair, RotateCcw, CheckCircle2, Plus, Check, Monitor } from 'lucide-react';
 
 interface ZoneSelectorOverlayProps {
   isOpen: boolean;
   files: FileItem[];
   activeZones: CustomZone[];
+  currentDisplay?: DisplayInfo | null;
   onClose: () => void;
   onUpdateZones: (newZones: CustomZone[]) => void;
 }
@@ -21,6 +22,7 @@ export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
   isOpen,
   files,
   activeZones,
+  currentDisplay,
   onClose,
   onUpdateZones,
 }) => {
@@ -116,8 +118,10 @@ export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
     // En az 150x160 boyutunda anlamlı bir kutu oluştur
     const finalW = Math.max(150, width);
     const finalH = Math.max(160, height);
-    const clampedX = Math.min(window.innerWidth - finalW - 16, Math.max(16, x));
-    const clampedY = Math.min(window.innerHeight - finalH - 48, Math.max(16, y));
+    const screenW = currentDisplay?.bounds.width || window.innerWidth || 1920;
+    const screenH = currentDisplay?.bounds.height || window.innerHeight || 1080;
+    const clampedX = Math.min(screenW - finalW - 16, Math.max(16, x));
+    const clampedY = Math.min(screenH - finalH - 48, Math.max(16, y));
 
     setFinalZone({
       x: clampedX,
@@ -163,8 +167,8 @@ export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
     if (!finalZone) return {};
     const dialogW = 340;
     const dialogH = 300;
-    const W = window.innerWidth || 1920;
-    const H = window.innerHeight || 1080;
+    const W = currentDisplay?.bounds.width || window.innerWidth || 1920;
+    const H = currentDisplay?.bounds.height || window.innerHeight || 1080;
 
     let left = finalZone.x + finalZone.width + 14;
     if (left + dialogW > W - 16) {
@@ -199,6 +203,12 @@ export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
           <span className="font-bold text-white text-[12px]">
             {activeZones.length === 0 ? 'Alan Seçimi' : `${activeZones.length} Özel Alan Aktif`}
           </span>
+          {currentDisplay && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-mono text-[10px]">
+              <Monitor className="w-3 h-3 text-cyan-400" />
+              <span>{currentDisplay.name.split(' (')[0]} ({currentDisplay.bounds.width}×{currentDisplay.bounds.height})</span>
+            </div>
+          )}
         </div>
 
         {/* Tanımlanmış Mevcut Alanların Küçük Çiğleri */}

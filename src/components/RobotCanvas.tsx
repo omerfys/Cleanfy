@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import Matter from 'matter-js';
-import { FileItem, RobotState } from '../types';
+import { FileItem, RobotState, DisplayInfo } from '../types';
 import { CATEGORY_COLORS } from '../services/categorization';
 import { CustomZone, ZoneTargetsMap, ZONE_COLOR_THEMES } from '../services/zoneOrganizer';
 
@@ -15,6 +15,8 @@ interface RobotCanvasProps {
   activeZones?: CustomZone[];
   activeZoneHighlight?: { x: number; y: number; width: number; height: number; label: string } | null;
   filePositionsRef?: React.MutableRefObject<Record<string, { x: number; y: number }>>;
+  currentDisplay?: DisplayInfo | null;
+  wallpaperUrl?: string | null;
 }
 
 interface DustMote {
@@ -60,6 +62,8 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
   activeZones,
   activeZoneHighlight,
   filePositionsRef,
+  currentDisplay,
+  wallpaperUrl,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -103,14 +107,14 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    const W = container.clientWidth || window.innerWidth || 1920;
-    const H = container.clientHeight || window.innerHeight || 1080;
+    const W = currentDisplay?.bounds.width || container.clientWidth || window.innerWidth || 1920;
+    const H = currentDisplay?.bounds.height || container.clientHeight || window.innerHeight || 1080;
     canvas.width = W;
     canvas.height = H;
 
     // Masaüstü Duvar Kağıdı (Kopya Modu - Her Zaman Aktif)
     const wpImg = new Image();
-    wpImg.src = './wallpaper.png';
+    wpImg.src = wallpaperUrl || './wallpaper.png';
     let wpReady = false;
     wpImg.onload = () => { wpReady = true; };
 
@@ -936,7 +940,7 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
 
     frameId = requestAnimationFrame(render);
     return () => { cancelAnimationFrame(frameId); Runner.stop(runner); Engine.clear(engine); };
-  }, [files]);
+  }, [files, currentDisplay?.id, currentDisplay?.bounds.width, currentDisplay?.bounds.height, wallpaperUrl]);
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden select-none">

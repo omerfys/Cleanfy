@@ -173,4 +173,32 @@ describe('Çoklu Alan (Multi-Zone) Düzenleme Testleri', () => {
     expect(zonesWithCounts[0].matchedCount).toBe(2);
     expect(zonesWithCounts[1].matchedCount).toBe(2);
   });
+
+  it('Farklı monitör çözünürlüklerine (1536x864, 2560x1440) ve sınırlarına göre alanları doğru yerleştirmeli', () => {
+    const zone: CustomZone = {
+      id: 'z-games-4k',
+      x: 50,
+      y: 50,
+      width: 300,
+      height: 250,
+      prompt: 'buraya sadece oyunları koy',
+      label: '🎮 Sadece Oyunlar',
+      colorIndex: 0,
+      colorTheme: ZONE_COLOR_THEMES[0],
+      matchedCount: 0,
+      matchedFileIds: [],
+    };
+
+    // Ekran 1: 1536x864
+    const res1 = computeMultiZoneArrangement(mockFiles, [zone], {}, 1536, 864);
+    expect(res1.targets['f-valorant'].x).toBeGreaterThanOrEqual(50);
+    expect(res1.targets['f-valorant'].x).toBeLessThan(1536);
+    expect(res1.targets['f-valorant'].y).toBeLessThan(864);
+
+    // Ekran 2: 2560x1440
+    const res2 = computeMultiZoneArrangement(mockFiles, [zone], {}, 2560, 1440);
+    expect(res2.targets['f-valorant'].x).toBeGreaterThanOrEqual(50);
+    expect(res2.targets['f-valorant'].x).toBeLessThan(2560);
+    expect(res2.targets['f-valorant'].y).toBeLessThan(1440);
+  });
 });

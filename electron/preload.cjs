@@ -11,6 +11,16 @@ contextBridge.exposeInMainWorld('cleanfyApi', {
   // Şeffaf pencerede fare tıklamalarını arkadaki masaüstüne geçirme / yakalama
   setIgnoreMouse: (ignore) => ipcRenderer.invoke('window:setIgnoreMouse', ignore),
   
+  // Çoklu Monitör & Ekran Seçimi API'leri
+  getDisplays: () => ipcRenderer.invoke('window:getDisplays'),
+  switchDisplay: (displayId) => ipcRenderer.invoke('window:switchDisplay', displayId),
+  getWallpaper: () => ipcRenderer.invoke('desktop:getWallpaper'),
+  onDisplaysChanged: (callback) => {
+    const listener = (_, displays) => callback(displays);
+    ipcRenderer.on('displays:changed', listener);
+    return () => ipcRenderer.removeListener('displays:changed', listener);
+  },
+
   // Pencere kontrolleri
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
   closeWindow: () => ipcRenderer.invoke('window:close'),
