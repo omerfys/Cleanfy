@@ -57,7 +57,7 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
   robotState,
   activeFileId,
   cleanedFileIds,
-  viewMode = 'clone',
+  viewMode = 'transparent',
   zoneTargets,
   activeZones,
   activeZoneHighlight,
@@ -113,11 +113,14 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
     canvas.width = W;
     canvas.height = H;
 
-    // Masaüstü Duvar Kağıdı
-    const wpImg = new Image();
-    wpImg.src = './wallpaper.png';
+    // Masaüstü Duvar Kağıdı (Yalnızca klon modunda gerekirse yüklenir)
+    let wpImg: HTMLImageElement | null = null;
     let wpReady = false;
-    wpImg.onload = () => { wpReady = true; };
+    if (viewModeRef.current === 'clone') {
+      wpImg = new Image();
+      wpImg.src = './wallpaper.png';
+      wpImg.onload = () => { wpReady = true; };
+    }
 
     // Matter.js Fizik Motoru
     const { Engine, Runner, Bodies, Composite, Events, Body, Vector } = Matter;
@@ -312,7 +315,7 @@ export const RobotCanvas: React.FC<RobotCanvasProps> = ({
         const t = timeRef.current;
 
       // Zemin
-      if (viewModeRef.current === 'clone' && wpReady) ctx.drawImage(wpImg, 0, 0, W, H);
+      if (viewModeRef.current === 'clone' && wpReady && wpImg) ctx.drawImage(wpImg, 0, 0, W, H);
       else ctx.clearRect(0, 0, W, H);
 
       const st = robotStateRef.current;

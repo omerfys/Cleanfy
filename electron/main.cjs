@@ -5,6 +5,25 @@ const { getRealDesktopPath, scanDesktop, safelyMoveFile, revertMoveHistory } = r
 let mainWindow = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
+// Tekil Örnek Kilidi: Uygulama zaten açıksa ikinciyi başlatmak yerine mevcudu anında ön plana getir
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.moveTop();
+      mainWindow.setAlwaysOnTop(true, 'screen-saver');
+      try {
+        app.focus({ steal: true });
+      } catch (e) {}
+    }
+  });
+}
+
 function createMainWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.bounds;
@@ -28,13 +47,10 @@ function createMainWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
+      backgroundThrottling: false, // Arka planda olsa dahi 60 FPS akıcı fizik
     },
     show: false,
   });
-
-  // Windows masaüstünün üzerinde kalma ve fare tıklamalarını varsayılan olarak masaüstü simgelerine iletme
-  mainWindow.setAlwaysOnTop(true, 'screen-saver');
-  mainWindow.setIgnoreMouseEvents(true, { forward: true });
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
   if (isDev) {
@@ -44,7 +60,21 @@ function createMainWindow() {
   }
 
   mainWindow.once('ready-to-show', () => {
+    // 1. Doğrudan en ön planda aç, odakla ve ekran koruyucu katmanına yerleştir
     mainWindow.show();
+    mainWindow.focus();
+    mainWindow.moveTop();
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    try {
+      app.focus({ steal: true });
+    } catch (e) {}
+
+    // 2. Pencere Windows tarafından ön plana alınıp yerleştikten sonra masaüstü tıklama geçişini aktif et
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setIgnoreMouseEvents(true, { forward: true });
+      }
+    }, 300);
   });
 
   mainWindow.on('closed', () => {

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { execSync, execFile } = require('child_process');
 const { app, shell, nativeImage } = require('electron');
 const { categorizeFile, CATEGORIES } = require('./categorization.cjs');
 
@@ -20,51 +20,33 @@ const IGNORED_FILES = new Set([
  * @returns {string} Gerçek masaüstü dizini yolu
  */
 function getRealDesktopPath() {
-  // 1. Yöntem: Registry kontrolü (OneDrive masaüstü yönlendirmesini en doğru yakalar)
+  // 1. Yöntem: Electron yerel C++ API (0 ms, anında ve hafızadan)
+  try {
+    if (app && typeof app.getPath === 'function') {
+      const electronDesktop = app.getPath('desktop');
+      if (electronDesktop && fs.existsSync(electronDesktop)) {
+        return path.resolve(electronDesktop);
+      }
+    }
+  } catch (err) {}
+
+  // 2. Yöntem: Registry kontrolü (Yedek)
   try {
     const regOutput = execSync(
       'reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders" /v Desktop',
-      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
+      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'], timeout: 2000 }
     );
     const match = regOutput.match(/Desktop\s+REG_(?:EXPAND_)?SZ\s+(.+)/i);
     if (match && match[1]) {
       let regPath = match[1].trim();
-      // Çevre değişkenlerini aç: %USERPROFILE% -> C:\Users\...
       regPath = regPath.replace(/%([^%]+)%/g, (_, n) => process.env[n] || '');
       if (fs.existsSync(regPath)) {
         return path.resolve(regPath);
       }
     }
-  } catch (err) {
-    // Registry başarısızsa devam et
-  }
+  } catch (err) {}
 
-  // 2. Yöntem: PowerShell ile .NET Environment.GetFolderPath
-  try {
-    const psOutput = execSync(
-      'powershell -NoProfile -Command "[Environment]::GetFolderPath([Environment+SpecialFolder]::Desktop)"',
-      { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
-    ).trim();
-    if (psOutput && fs.existsSync(psOutput)) {
-      return path.resolve(psOutput);
-    }
-  } catch (err) {
-    // PowerShell başarısızsa devam et
-  }
-
-  // 3. Yöntem: Electron app.getPath('desktop')
-  try {
-    if (app && typeof app.getPath === 'function') {
-      const electronDesktop = app.getPath('desktop');
-      if (fs.existsSync(electronDesktop)) {
-        return path.resolve(electronDesktop);
-      }
-    }
-  } catch (err) {
-    // Devam et
-  }
-
-  // 4. Yöntem: OneDrive veya USERPROFILE fallback
+  // 3. Yöntem: OneDrive veya USERPROFILE fallback
   if (process.env.OneDrive) {
     const oneDriveDesktop = path.join(process.env.OneDrive, 'Desktop');
     if (fs.existsSync(oneDriveDesktop)) {
@@ -98,7 +80,7 @@ function calculateSha256(filePath) {
  * @param {string} desktopPath 
  * @returns {Map<string, string>} Dosya adı -> data:image/png;base64,... haritası
  */
-function batchExtractNativeWindowsIcons(desktopPath) {
+async function batchExtractNativeWindowsIcons(desktopPath) {
   const result = new Map();
   try {
     const escaped = desktopPath.replace(/'/g, "''");
@@ -126,11 +108,20 @@ $ms.Dispose();
 $dict | ConvertTo-Json -Compress;
 `.replace(/\r?\n/g, ' ');
 
-    const out = execSync(`powershell -NoProfile -ExecutionPolicy Bypass -Command "${script}"`, {
-      encoding: 'utf-8',
-      maxBuffer: 50 * 1024 * 1024,
-      stdio: ['pipe', 'pipe', 'ignore'],
-      timeout: 10000
+    const out = await new Promise((resolve) => {
+      execFile(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
+        {
+          encoding: 'utf-8',
+          maxBuffer: 50 * 1024 * 1024,
+          windowsHide: true,
+          timeout: 10000,
+        },
+        (err, stdout) => {
+          resolve(stdout || '');
+        }
+      );
     });
 
     if (out) {
@@ -661,16 +652,27 @@ if ($OutFile) {
 
     let rawOutput = '';
     try {
-      execSync(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${tempPsFile}" -OutFile "${tempJsonFile}"`, {
-        timeout: 15000,
-        stdio: ['pipe', 'ignore', 'ignore'],
+      await new Promise((resolve) => {
+        execFile(
+          'powershell.exe',
+          ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tempPsFile, '-OutFile', tempJsonFile],
+          {
+            timeout: 15000,
+            windowsHide: true,
+          },
+          () => resolve()
+        );
       });
       if (fs.existsSync(tempJsonFile)) {
         rawOutput = fs.readFileSync(tempJsonFile, 'utf8');
       }
     } finally {
-      if (fs.existsSync(tempPsFile)) fs.unlinkSync(tempPsFile);
-      if (fs.existsSync(tempJsonFile)) fs.unlinkSync(tempJsonFile);
+      if (fs.existsSync(tempPsFile)) {
+        try { fs.unlinkSync(tempPsFile); } catch (e) {}
+      }
+      if (fs.existsSync(tempJsonFile)) {
+        try { fs.unlinkSync(tempJsonFile); } catch (e) {}
+      }
     }
 
     if (!rawOutput || !rawOutput.trim()) return null;
@@ -782,7 +784,7 @@ async function scanDesktop(customPath) {
   }
 
   // 2. Standart dosya sistemi taraması (Yedek veya test ortamı)
-  const batchIcons = batchExtractNativeWindowsIcons(desktopPath);
+  const batchIcons = await batchExtractNativeWindowsIcons(desktopPath);
 
   const entries = fs.readdirSync(desktopPath, { withFileTypes: true });
   const files = [];
