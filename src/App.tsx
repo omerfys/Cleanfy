@@ -463,7 +463,8 @@ export const App: React.FC = () => {
     activeDisplayFiles.forEach(f => {
       const t = targets[f.id];
       if (t) {
-        const virtualX = Math.round(t.x * scale + screenOffsetX);
+        const origOffset = (typeof f.virtualX === 'number' && f.virtualX >= 1920) ? 1920 : screenOffsetX;
+        const virtualX = Math.round(t.x * scale + origOffset);
         const virtualY = Math.round(t.y * scale + screenOffsetY);
         realDesktopPositions[f.currentPath] = { x: virtualX, y: virtualY };
         realDesktopPositions[f.name] = { x: virtualX, y: virtualY };

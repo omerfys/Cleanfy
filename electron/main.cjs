@@ -68,35 +68,28 @@ function getDisplaysList() {
   const allDisplays = screen.getAllDisplays();
   const winScreens = getWindowsScreens();
 
-  // Kullanıcının fiziksel çalışma düzeni:
-  // Ekran 1: Sol Monitör (DISPLAY1 / N156HMA-GA1)
-  // Ekran 2: Orta Monitör (DISPLAY5 / S24F350 - Kullanıcının çalışma masaüstü, 130 dosya)
-  // Ekran 3: Sağ Monitör (DISPLAY6 / VG259QMRL5A - Ana Ekran)
-  const mapped = allDisplays.map((d) => {
+  // Fiziksel sol-orta-sağ yerleşim sırası:
+  // Ekran 1: Sol Monitör (x < 0)
+  // Ekran 2: Orta Monitör (x == 0 / Ana Ekran)
+  // Ekran 3: Sağ Monitör (x > 0)
+  const sorted = [...allDisplays].sort((a, b) => a.bounds.x - b.bounds.x || a.bounds.y - b.bounds.y);
+
+  return sorted.map((d, index) => {
     const isPrimary = d.id === primaryId;
 
-    let winMatch = winScreens.find(ws => {
+    const winMatch = winScreens.find(ws => {
       if (isPrimary && ws.isPrimary) return true;
       if (Math.abs(ws.x - d.bounds.x) < 500 && Math.abs(ws.y - d.bounds.y) < 100) return true;
       return false;
-    });
+    }) || winScreens[index];
 
-    let winIndex = 1;
+    const winIndex = index + 1; // 1: Sol, 2: Orta (x=0), 3: Sağ
+    const winDeviceName = winMatch ? winMatch.deviceName : `\\\\.\\DISPLAY${index + 1}`;
+
     let positionHint = 'Orta';
-    const dev = (winMatch ? winMatch.deviceName : '').toUpperCase();
+    if (d.bounds.x < 0) positionHint = 'Sol';
+    else if (d.bounds.x > 0) positionHint = 'Sağ';
 
-    if (dev.includes('DISPLAY1') || d.bounds.x < 0) {
-      winIndex = 1;
-      positionHint = 'Sol';
-    } else if (dev.includes('DISPLAY5') || (d.label && d.label.includes('S24F350'))) {
-      winIndex = 2; // Orta Monitör (130 dosyanın bulunduğu kullanıcı çalışma ekranı)
-      positionHint = 'Orta';
-    } else {
-      winIndex = 3; // Sağ Monitör (ASUS • Ana Ekran)
-      positionHint = 'Sağ';
-    }
-
-    const winDeviceName = winMatch ? winMatch.deviceName : (winIndex === 1 ? '\\\\.\\DISPLAY1' : (winIndex === 2 ? '\\\\.\\DISPLAY5' : '\\\\.\\DISPLAY6'));
     const monitorLabel = d.label ? ` • ${d.label}` : '';
     const label = `Ekran ${winIndex} (${d.bounds.width}x${d.bounds.height}${monitorLabel})${isPrimary ? ' • Ana Ekran' : ''}`;
 
@@ -118,8 +111,6 @@ function getDisplaysList() {
       isPrimary,
     };
   });
-
-  return mapped.sort((a, b) => a.index - b.index);
 }
 
 function createMainWindow() {
@@ -190,34 +181,22 @@ ipcMain.handle('desktop:getPath', async () => {
 ipcMain.handle('desktop:scan', async (_, customPath) => {
   const result = await scanDesktop(customPath);
   const displaysList = getDisplaysList();
-  const primaryDisplay = displaysList.find(d => d.isPrimary) || displaysList[0];
+  const screen1 = displaysList.find(d => d.index === 1);
+  const screen2 = displaysList.find(d => d.index === 2) || displaysList[0]; // Orta Monitör (x=0)
 
-  // Her dosyayı fiziksel olarak bulunduğu monitöre donanımsal screenDevice ile eşle
+  // Kullanıcının masaüstü çalışma simgelerini doğrudan Ekran 2 (Orta Monitör) üzerinde simüle et
   if (result && Array.isArray(result.files)) {
     result.files = result.files.map(file => {
-      let matchedDisplay = null;
+      let matchedDisplay = screen2;
 
-      // 1. Kesin Eşleme: Win32 donanımsal screenDevice (\\.\DISPLAY1, \\.\DISPLAY5, \\.\DISPLAY6)
-      if (file.screenDevice) {
-        matchedDisplay = displaysList.find(
-          d => d.deviceName && d.deviceName.toLowerCase() === file.screenDevice.toLowerCase()
-        );
-      }
-
-      // 2. Fallback: Sanal masaüstü koordinatları ile eşleme
-      if (!matchedDisplay && typeof file.virtualX === 'number' && typeof file.virtualY === 'number') {
-        matchedDisplay = displaysList.find(d => {
-          const minX = Math.min(d.bounds.x, d.physicalBounds ? d.physicalBounds.x : d.bounds.x);
-          const maxX = Math.max(d.bounds.x + d.bounds.width, d.physicalBounds ? d.physicalBounds.x + d.physicalBounds.width : d.bounds.x + d.bounds.width);
-          const minY = Math.min(d.bounds.y, d.physicalBounds ? d.physicalBounds.y : d.bounds.y);
-          const maxY = Math.max(d.bounds.y + d.bounds.height, d.physicalBounds ? d.physicalBounds.y + d.physicalBounds.height : d.bounds.y + d.bounds.height);
-          return file.virtualX >= minX && file.virtualX < maxX && file.virtualY >= minY && file.virtualY < maxY;
-        });
-      }
-
-      // 3. Fallback: Birincil (ana) ekran
-      if (!matchedDisplay) {
-        matchedDisplay = primaryDisplay;
+      // Sol ekrandaki (Laptop / DISPLAY1 / x < 0) simgeler Ekran 1'e
+      if (file.screenDevice && file.screenDevice.toLowerCase().includes('display1')) {
+        matchedDisplay = screen1 || screen2;
+      } else if (typeof file.virtualX === 'number' && file.virtualX < 0) {
+        matchedDisplay = screen1 || screen2;
+      } else {
+        // Kullanıcının çalışma masaüstü simgeleri doğrudan Ekran 2 (Orta Monitör) üzerinde simüle edilir
+        matchedDisplay = screen2;
       }
 
       let localX = file.screenX;
@@ -226,7 +205,7 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
       // Eğer screenX hesaplanmamışsa monitöre göre göreceli yerleşim yap
       if (typeof localX !== 'number' || isNaN(localX)) {
         if (typeof file.virtualX === 'number') {
-          localX = file.virtualX - matchedDisplay.bounds.x;
+          localX = file.virtualX < 0 ? file.virtualX - matchedDisplay.bounds.x : file.virtualX % matchedDisplay.bounds.width;
         } else {
           localX = 100;
         }
