@@ -90,17 +90,17 @@ function getDisplaysList() {
   let assignedList = [];
 
   // 3 ekranlı kurulumda:
-  // Ekran 1: Sol Monitör (DISPLAY1 / N156HMA / x < 0 - Windows 1. Ekran)
-  // Ekran 2: Orta Monitör (DISPLAY5 / VG259QM / x == 0 - Windows 2. Ekran / Ana Çalışma Ekranı)
-  // Ekran 3: Sağ Monitör (DISPLAY6 / S24F350 / x >= 1920 - Windows 3. Ekran)
+  // Ekran 1: Orta Monitör (DISPLAY5 / VG259QM / x == 0 - Windows 1. Ekran / Ana Çalışma Ekranı)
+  // Ekran 2: Sol Monitör (DISPLAY1 / N156HMA / x < 0 - Windows 2. Ekran / Laptop)
+  // Ekran 3: Sağ Monitör (DISPLAY6 / S24F350 / x >= 1920 - Windows 3. Ekran / Samsung)
   if (displayItems.length === 3) {
-    const screen1Item = displayItems.find(it => it.d.bounds.x < 0 || it.devName.toLowerCase().includes('display1') || it.d.label?.includes('N156HMA'));
-    const screen2Item = displayItems.find(it => it.isPrimary || (it.d.bounds.x >= 0 && it.d.bounds.x < 1920) || it.devName.toLowerCase().includes('display5') || it.d.label?.includes('VG259QM'));
+    const screen1Item = displayItems.find(it => it.isPrimary || (it.d.bounds.x >= 0 && it.d.bounds.x < 1920) || it.devName.toLowerCase().includes('display5') || it.d.label?.includes('VG259QM'));
+    const screen2Item = displayItems.find(it => it.d.bounds.x < 0 || it.devName.toLowerCase().includes('display1') || it.d.label?.includes('N156HMA'));
     const screen3Item = displayItems.find(it => it !== screen1Item && it !== screen2Item);
 
     const ordered = [
-      { item: screen1Item, index: 1, pos: 'Sol', labelSuffix: 'Sol Monitör' },
-      { item: screen2Item, index: 2, pos: 'Orta', labelSuffix: 'Orta Monitör' },
+      { item: screen1Item, index: 1, pos: 'Orta', labelSuffix: 'Orta Monitör' },
+      { item: screen2Item, index: 2, pos: 'Sol', labelSuffix: 'Sol Monitör' },
       { item: screen3Item, index: 3, pos: 'Sağ', labelSuffix: 'Sağ Monitör' },
     ].filter(o => o.item);
 
@@ -165,8 +165,8 @@ function getDisplaysList() {
 
 function createMainWindow() {
   const displays = getDisplaysList();
-  // Öncelikli olarak Ekran 2 (Orta Monitör / Masaüstü Dosyalarının Bulunduğu Ekran) üzerinde aç
-  const targetDisplay = displays.find(d => d.index === 2) || screen.getPrimaryDisplay();
+  // Öncelikli olarak Ekran 1 (Orta Monitör / Ana Ekran) üzerinde aç
+  const targetDisplay = displays.find(d => d.isPrimary) || displays.find(d => d.index === 1) || screen.getPrimaryDisplay();
   const { x, y, width, height } = targetDisplay.bounds;
 
   mainWindow = new BrowserWindow({
@@ -231,14 +231,14 @@ ipcMain.handle('desktop:getPath', async () => {
 ipcMain.handle('desktop:scan', async (_, customPath) => {
   const result = await scanDesktop(customPath);
   const displaysList = getDisplaysList();
-  const screen1 = displaysList.find(d => d.index === 1);
-  const screen2 = displaysList.find(d => d.index === 2) || displaysList[0]; // Orta Monitör (ASUS TUF / DISPLAY5 / x=0 / Ana Çalışma Ekranı)
-  const screen3 = displaysList.find(d => d.index === 3); // Sağ Monitör (Samsung / DISPLAY6 / x>=1920 / Windows 3. Ekran)
+  const screen1 = displaysList.find(d => d.index === 1); // Orta Monitör (ASUS TUF / DISPLAY5 / x=0 / Ana Çalışma Ekranı)
+  const screen2 = displaysList.find(d => d.index === 2); // Sol Monitör (Laptop / DISPLAY1 / x<0)
+  const screen3 = displaysList.find(d => d.index === 3); // Sağ Monitör (Samsung / DISPLAY6 / x>=1920)
 
   // Dosyaları Windows çoklu monitör sınırlarına ve yerleşimine göre Ekran 1, Ekran 2, Ekran 3'e eşle
   if (result && Array.isArray(result.files)) {
     result.files = result.files.map(file => {
-      let matchedDisplay = screen2;
+      let matchedDisplay = screen1;
 
       const dev = (file.screenDevice || '').toLowerCase();
       const vx = typeof file.virtualX === 'number' ? file.virtualX : null;
@@ -248,20 +248,20 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
       if (directMatch) {
         matchedDisplay = directMatch;
       }
-      // 2. Ekran 1 (Sol Monitör: DISPLAY1 veya vx < 0)
-      else if (screen1 && (dev.includes('display1') || (vx !== null && vx < 0))) {
-        matchedDisplay = screen1;
+      // 2. Sol Monitör (Ekran 2: DISPLAY1 veya vx < 0)
+      else if (screen2 && (dev.includes('display1') || (vx !== null && vx < 0))) {
+        matchedDisplay = screen2;
       }
-      // 3. Ekran 3 (Sağ Monitör: DISPLAY6 veya vx >= 1920)
+      // 3. Sağ Monitör (Ekran 3: DISPLAY6 veya vx >= 1920)
       else if (screen3 && (dev.includes('display6') || (vx !== null && vx >= 1920))) {
         matchedDisplay = screen3;
       }
-      // 4. Ekran 2 (Orta Monitör / Ana Masaüstü: DISPLAY5 veya 0 <= vx < 1920)
-      else if (screen2 && (dev.includes('display5') || (vx !== null && vx >= 0 && vx < 1920))) {
-        matchedDisplay = screen2;
+      // 4. Orta Monitör / Ana Masaüstü (Ekran 1: DISPLAY5 veya 0 <= vx < 1920)
+      else if (screen1 && (dev.includes('display5') || (vx !== null && vx >= 0 && vx < 1920))) {
+        matchedDisplay = screen1;
       }
       else {
-        matchedDisplay = screen2;
+        matchedDisplay = screen1;
       }
 
       let localX = file.screenX;

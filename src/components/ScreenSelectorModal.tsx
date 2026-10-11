@@ -81,11 +81,13 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
                 const isSelected = currentDisplay?.id === disp.id;
                 const fileCount = files.filter(f => f.displayId === disp.id || f.displayIndex === disp.index).length;
                 
-                // Fiziksel sol-orta-sağ yerleşim (Ekran 1: Sol, Ekran 2: Orta, Ekran 3: Sağ)
+                // Fiziksel sol-orta-sağ yerleşimi ekranın gerçek X ofsetine göre sırala
+                const physicalOrder = [...displays].sort((a, b) => a.bounds.x - b.bounds.x);
+                const slotIdx = physicalOrder.findIndex(d => d.id === disp.id);
                 const count = Math.max(displays.length, 1);
                 const slotWidth = 100 / count;
                 const relWidth = Math.max(26, slotWidth - 3);
-                const relLeft = (disp.index - 1) * slotWidth + 1.5;
+                const relLeft = (slotIdx >= 0 ? slotIdx : disp.index - 1) * slotWidth + 1.5;
                 const relHeight = Math.max(50, (disp.bounds.height / maxH) * 85);
 
                 return (

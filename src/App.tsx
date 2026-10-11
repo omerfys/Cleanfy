@@ -128,7 +128,7 @@ export const App: React.FC = () => {
           const dispList = await window.cleanfyApi.getDisplays();
           if (dispList && dispList.length > 0) {
             setDisplays(dispList);
-            const target = dispList.find(d => d.index === 2) || dispList.find(d => d.isPrimary) || dispList[0];
+            const target = dispList.find(d => d.isPrimary) || dispList.find(d => d.index === 1) || dispList[0];
             setCurrentDisplay(target);
           }
         } catch (err) {
