@@ -80,9 +80,12 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
               {displays.map((disp) => {
                 const isSelected = currentDisplay?.id === disp.id;
                 const fileCount = files.filter(f => f.displayId === disp.id).length;
-                // Göreceli genişlik ve sol konum hesabı
-                const relLeft = ((disp.bounds.x - minX) / totalSpanX) * 100;
-                const relWidth = (disp.bounds.width / totalSpanX) * 100;
+                
+                // Fiziksel sol-orta-sağ yerleşim (Ekran 1: Sol, Ekran 2: Orta, Ekran 3: Sağ)
+                const count = Math.max(displays.length, 1);
+                const slotWidth = 100 / count;
+                const relWidth = Math.max(26, slotWidth - 3);
+                const relLeft = (disp.index - 1) * slotWidth + 1.5;
                 const relHeight = Math.max(50, (disp.bounds.height / maxH) * 85);
 
                 return (

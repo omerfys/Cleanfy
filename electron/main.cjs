@@ -68,29 +68,35 @@ function getDisplaysList() {
   const allDisplays = screen.getAllDisplays();
   const winScreens = getWindowsScreens();
 
-  // Monitörleri fiziksel konumlarına göre soldan sağa sırala:
-  // Ekran 1: Sol Monitör (x < 0)
-  // Ekran 2: Orta Monitör (x = 0 / Ana Ekran)
-  // Ekran 3: Sağ Monitör (x > 0)
-  const sorted = [...allDisplays].sort((a, b) => a.bounds.x - b.bounds.x || a.bounds.y - b.bounds.y);
-
-  return sorted.map((d, index) => {
+  // Kullanıcının fiziksel çalışma düzeni:
+  // Ekran 1: Sol Monitör (DISPLAY1 / N156HMA-GA1)
+  // Ekran 2: Orta Monitör (DISPLAY5 / S24F350 - Kullanıcının çalışma masaüstü, 130 dosya)
+  // Ekran 3: Sağ Monitör (DISPLAY6 / VG259QMRL5A - Ana Ekran)
+  const mapped = allDisplays.map((d) => {
     const isPrimary = d.id === primaryId;
 
-    // Windows resmi donanım ekran bilgisiyle koordinat/birincil bazlı eşleme
-    const winMatch = winScreens.find(ws => {
+    let winMatch = winScreens.find(ws => {
       if (isPrimary && ws.isPrimary) return true;
       if (Math.abs(ws.x - d.bounds.x) < 500 && Math.abs(ws.y - d.bounds.y) < 100) return true;
       return false;
-    }) || winScreens[index];
+    });
 
-    const winIndex = index + 1; // 1: Sol, 2: Orta, 3: Sağ
-    const winDeviceName = winMatch ? winMatch.deviceName : `\\\\.\\DISPLAY${index + 1}`;
-
+    let winIndex = 1;
     let positionHint = 'Orta';
-    if (d.bounds.x < 0) positionHint = 'Sol';
-    else if (d.bounds.x > 0) positionHint = 'Sağ';
+    const dev = (winMatch ? winMatch.deviceName : '').toUpperCase();
 
+    if (dev.includes('DISPLAY1') || d.bounds.x < 0) {
+      winIndex = 1;
+      positionHint = 'Sol';
+    } else if (dev.includes('DISPLAY5') || (d.label && d.label.includes('S24F350'))) {
+      winIndex = 2; // Orta Monitör (130 dosyanın bulunduğu kullanıcı çalışma ekranı)
+      positionHint = 'Orta';
+    } else {
+      winIndex = 3; // Sağ Monitör (ASUS • Ana Ekran)
+      positionHint = 'Sağ';
+    }
+
+    const winDeviceName = winMatch ? winMatch.deviceName : (winIndex === 1 ? '\\\\.\\DISPLAY1' : (winIndex === 2 ? '\\\\.\\DISPLAY5' : '\\\\.\\DISPLAY6'));
     const monitorLabel = d.label ? ` • ${d.label}` : '';
     const label = `Ekran ${winIndex} (${d.bounds.width}x${d.bounds.height}${monitorLabel})${isPrimary ? ' • Ana Ekran' : ''}`;
 
@@ -100,38 +106,27 @@ function getDisplaysList() {
       name: label,
       deviceName: winDeviceName,
       positionHint,
-      bounds: {
-        x: d.bounds.x,
-        y: d.bounds.y,
-        width: d.bounds.width,
-        height: d.bounds.height,
-      },
+      bounds: d.bounds,
       physicalBounds: winMatch ? {
         x: winMatch.x,
         y: winMatch.y,
         width: winMatch.width,
         height: winMatch.height,
-      } : {
-        x: d.bounds.x,
-        y: d.bounds.y,
-        width: d.bounds.width,
-        height: d.bounds.height,
-      },
-      workArea: {
-        x: d.workArea.x,
-        y: d.workArea.y,
-        width: d.workArea.width,
-        height: d.workArea.height,
-      },
+      } : d.bounds,
+      workArea: d.workArea,
       scaleFactor: d.scaleFactor,
       isPrimary,
     };
   });
+
+  return mapped.sort((a, b) => a.index - b.index);
 }
 
 function createMainWindow() {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { x, y, width, height } = primaryDisplay.bounds;
+  const displays = getDisplaysList();
+  // Öncelikli olarak Ekran 2 (Orta Monitör / Masaüstü Dosyalarının Bulunduğu Ekran) üzerinde aç
+  const targetDisplay = displays.find(d => d.index === 2) || screen.getPrimaryDisplay();
+  const { x, y, width, height } = targetDisplay.bounds;
 
   mainWindow = new BrowserWindow({
     x,
