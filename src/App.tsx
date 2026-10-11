@@ -48,13 +48,11 @@ export const App: React.FC = () => {
   const [currentDisplay, setCurrentDisplay] = useState<DisplayInfo | null>(null);
   const [isScreenModalOpen, setIsScreenModalOpen] = useState<boolean>(false);
   const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
-  const [screenFilterMode, setScreenFilterMode] = useState<'current_screen' | 'all_screens'>('current_screen');
-
   // Aktif Monitördeki Dosyalar: Farklı bir ekrana geçince SADECE o ekranın üzerindeki dosyaları simüle et
   const activeDisplayFiles = useMemo(() => {
-    if (screenFilterMode === 'all_screens' || !currentDisplay) return files;
-    return files.filter(f => f.displayId === currentDisplay.id);
-  }, [files, currentDisplay, screenFilterMode]);
+    if (!currentDisplay) return files;
+    return files.filter(f => f.displayId === currentDisplay.id || f.displayIndex === currentDisplay.index);
+  }, [files, currentDisplay]);
 
   // İşlem Durumları
   const [isScanning, setIsScanning] = useState<boolean>(false);
@@ -168,10 +166,14 @@ export const App: React.FC = () => {
         setExistingFolders(result.existingFolders);
         setFiles(result.files);
 
+        const screenFiles = currentDisplay
+          ? result.files.filter(f => f.displayId === currentDisplay.id || f.displayIndex === currentDisplay.index)
+          : result.files;
+
         setStats(prev => ({
           ...prev,
-          totalScanned: result.files.length,
-          categorized: result.files.length,
+          totalScanned: screenFiles.length,
+          categorized: screenFiles.length,
           moved: 0,
           skipped: 0,
           failed: 0,
@@ -373,8 +375,13 @@ export const App: React.FC = () => {
           localY = Math.round(firstZone.y + 30 + Math.floor(folderIdx / 3) * 100);
         }
 
-        const virtualX = Math.round(screenOffsetX + localX * scale);
-        const virtualY = Math.round(screenOffsetY + localY * scale);
+        const rawVirtualX = Math.round(screenOffsetX + localX * scale);
+        const rawVirtualY = Math.round(screenOffsetY + localY * scale);
+
+        const screenW = currentDisplay?.physicalBounds?.width ?? (currentDisplay?.bounds.width ?? 1920);
+        const screenH = currentDisplay?.physicalBounds?.height ?? (currentDisplay?.bounds.height ?? 1080);
+        const virtualX = Math.max(screenOffsetX + 30, Math.min(rawVirtualX, screenOffsetX + screenW - 80));
+        const virtualY = Math.max(screenOffsetY + 30, Math.min(rawVirtualY, screenOffsetY + screenH - 80));
 
         folderPositions[fullFolderPath] = { x: virtualX, y: virtualY };
         folderPositions[folderName] = { x: virtualX, y: virtualY };
@@ -515,8 +522,10 @@ export const App: React.FC = () => {
     activeDisplayFiles.forEach(f => {
       const t = targets[f.id];
       if (t) {
-        const virtualX = Math.round(screenOffsetX + t.x * scale);
-        const virtualY = Math.round(screenOffsetY + t.y * scale);
+        const rawVirtualX = Math.round(screenOffsetX + t.x * scale);
+        const rawVirtualY = Math.round(screenOffsetY + t.y * scale);
+        const virtualX = Math.max(screenOffsetX + 30, Math.min(rawVirtualX, screenOffsetX + screenW - 80));
+        const virtualY = Math.max(screenOffsetY + 30, Math.min(rawVirtualY, screenOffsetY + screenH - 80));
         realDesktopPositions[f.currentPath] = { x: virtualX, y: virtualY };
         realDesktopPositions[f.name] = { x: virtualX, y: virtualY };
       }
@@ -701,18 +710,15 @@ export const App: React.FC = () => {
               <Folder className="w-3 h-3 text-cyan-400 shrink-0" />
               <span className="truncate">{desktopPath || 'Masaüstü...'}</span>
             </div>
-            <button
-              onClick={() => setScreenFilterMode(prev => prev === 'current_screen' ? 'all_screens' : 'current_screen')}
-              className="px-2 py-1 rounded-lg glass-pill font-mono text-slate-200 hover:text-white hover:!border-cyan-400/40 transition-colors cursor-pointer shrink-0"
-              title={screenFilterMode === 'current_screen' 
-                ? `Bu ekrandaki dosyalar: ${activeDisplayFiles.length}. Tüm ekranları görmek için tıklayın.` 
-                : `Tüm ekranlardaki dosyalar: ${files.length}. Sadece bu ekranı görmek için tıklayın.`}
+            <div
+              className="px-2 py-1 rounded-lg glass-pill font-mono text-slate-200 shrink-0"
+              title={`Ekran ${currentDisplay?.index || 1} üzerindeki dosyalar: ${activeDisplayFiles.length} (Toplam: ${files.length})`}
             >
               📄 <strong>{activeDisplayFiles.length}</strong>
-              {screenFilterMode === 'current_screen' && files.length !== activeDisplayFiles.length && (
+              {files.length !== activeDisplayFiles.length && (
                 <span className="text-[9px] text-cyan-300 font-normal ml-1">/ {files.length}</span>
               )}
-            </button>
+            </div>
             <span className="px-2 py-1 rounded-lg glass-pill font-mono text-emerald-300 !border-emerald-500/30 !bg-emerald-500/10 shrink-0">
               ✓ <strong>{stats.moved}</strong>
             </span>

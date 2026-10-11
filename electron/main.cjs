@@ -264,6 +264,7 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
 
       // Monitörün yerel (0..width, 0..height) koordinatlarına göre normalize et
       const offsetX = matchedDisplay.physicalBounds?.x ?? (matchedDisplay.bounds.x ?? 0);
+      const offsetY = matchedDisplay.physicalBounds?.y ?? (matchedDisplay.bounds.y ?? 0);
       if (vx !== null) {
         let relX = vx - offsetX;
         if (relX >= matchedDisplay.bounds.width) {
@@ -273,7 +274,12 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
         localX = relX;
       }
       if (typeof file.virtualY === 'number') {
-        localY = file.virtualY % matchedDisplay.bounds.height;
+        let relY = file.virtualY - offsetY;
+        if (relY >= matchedDisplay.bounds.height) {
+          relY = relY % matchedDisplay.bounds.height;
+        }
+        if (relY < 0) relY = 100;
+        localY = relY;
       }
 
       // Güvenlik sınırları: simgelerin ekran kenarına taşmasını önle
@@ -325,17 +331,20 @@ ipcMain.handle('window:switchDisplay', async (_, displayId) => {
   if (!mainWindow || mainWindow.isDestroyed()) return null;
 
   const allDisplays = screen.getAllDisplays();
-  const targetDisplay = allDisplays.find(d => d.id === displayId) || screen.getPrimaryDisplay();
+  const displays = getDisplaysList();
+  const matched = displays.find(d => d.id === displayId || d.index === displayId);
+  const targetDisplay = allDisplays.find(d => d.id === (matched?.id ?? displayId)) || screen.getPrimaryDisplay();
   const { x, y, width, height } = targetDisplay.bounds;
 
   mainWindow.setBounds({ x, y, width, height });
+  mainWindow.setPosition(x, y);
+  mainWindow.setSize(width, height);
   mainWindow.show();
   mainWindow.focus();
   mainWindow.moveTop();
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
 
-  const displays = getDisplaysList();
-  return displays.find(d => d.id === targetDisplay.id) || displays[0];
+  return matched || displays.find(d => d.id === targetDisplay.id) || displays[0];
 });
 
 // Güncel Masaüstü Duvar Kağıdını Tespit Et (Windows Kopya Modu İçin)
