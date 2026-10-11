@@ -89,13 +89,13 @@ function getDisplaysList() {
 
   let assignedList = [];
 
-  // 3 ekranlı kurulumda Windows sıra ve yerleşimine göre:
+  // 3 ekranlı kurulumda:
   // Ekran 1: Sol Monitör (x < 0 veya DISPLAY1 veya N156HMA)
-  // Ekran 2: Orta Monitör (DISPLAY5 / VG259QMRL5A / x == 0 / Ana Ekran)
-  // Ekran 3: Sağ Monitör (DISPLAY6 / S24F350 / x >= 1920 / Windows 3. Ekran)
+  // Ekran 2: Orta Monitör (DISPLAY6 / S24F350 / x >= 1920 - Ana masaüstü çalışma ekranı, kullanıcının ana dosyaları)
+  // Ekran 3: Sağ Monitör (DISPLAY5 / VG259QMRL5A / x == 0 - Sağdaki diğer ekran)
   if (displayItems.length === 3) {
     const screen1Item = displayItems.find(it => it.d.bounds.x < 0 || it.devName.toLowerCase().includes('display1') || it.d.label?.includes('N156HMA'));
-    const screen2Item = displayItems.find(it => it.isPrimary || (it.d.bounds.x >= 0 && it.d.bounds.x < 1920) || it.devName.toLowerCase().includes('display5') || it.d.label?.includes('VG259QM'));
+    const screen2Item = displayItems.find(it => it.devName.toLowerCase().includes('display6') || it.d.label?.includes('S24F350') || it.d.bounds.x >= 1920);
     const screen3Item = displayItems.find(it => it !== screen1Item && it !== screen2Item);
 
     const ordered = [
@@ -232,8 +232,8 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
   const result = await scanDesktop(customPath);
   const displaysList = getDisplaysList();
   const screen1 = displaysList.find(d => d.index === 1);
-  const screen2 = displaysList.find(d => d.index === 2) || displaysList[0]; // Orta Monitör (ASUS TUF / DISPLAY5 / x=0 / Ana Ekran)
-  const screen3 = displaysList.find(d => d.index === 3); // Sağ Monitör (Samsung / DISPLAY6 / x>=1920 / Windows 3. Ekran)
+  const screen2 = displaysList.find(d => d.index === 2) || displaysList[0]; // Orta Monitör (Samsung / DISPLAY6 / x>=1920 / Ana Çalışma Ekranı)
+  const screen3 = displaysList.find(d => d.index === 3); // Sağ Monitör (ASUS TUF / DISPLAY5 / x=0 / Test Ekranı)
 
   // Dosyaları Windows çoklu monitör sınırlarına ve yerleşimine göre Ekran 1, Ekran 2, Ekran 3'e eşle
   if (result && Array.isArray(result.files)) {
@@ -247,12 +247,12 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
       if (screen1 && (dev.includes('display1') || (vx !== null && vx < 0))) {
         matchedDisplay = screen1;
       }
-      // 2. Ekran 3 (Sağ Monitör: DISPLAY6 veya vx >= 1920)
-      else if (screen3 && (dev.includes('display6') || (vx !== null && vx >= 1920))) {
+      // 2. Ekran 3 (Sağ Monitör: DISPLAY5 veya 0 <= vx < 1920)
+      else if (screen3 && (dev.includes('display5') || (vx !== null && vx >= 0 && vx < 1920))) {
         matchedDisplay = screen3;
       }
-      // 3. Ekran 2 (Orta Monitör / Ana Ekran: DISPLAY5 veya 0 <= vx < 1920 veya varsayılan)
-      else if (screen2 && (dev.includes('display5') || (vx !== null && vx >= 0 && vx < 1920))) {
+      // 3. Ekran 2 (Orta Monitör / Ana Masaüstü: DISPLAY6 veya vx >= 1920)
+      else if (screen2 && (dev.includes('display6') || (vx !== null && vx >= 1920))) {
         matchedDisplay = screen2;
       }
       else {
