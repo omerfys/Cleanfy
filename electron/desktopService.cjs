@@ -1059,6 +1059,7 @@ $code = @"
 using System;
 using System.Runtime.InteropServices;
 using System.Drawing;
+using System.Collections.Generic;
 
 [ComImport]
 [Guid("6D5140C1-7436-11CE-8034-00AA006009FA")]
@@ -1102,77 +1103,108 @@ public struct POINT {
 }
 
 public class DesktopArranger {
-    public static object GetFolderView(object desktopWin) {
-        if (desktopWin == null) return null;
-        IServiceProvider sp = desktopWin as IServiceProvider;
-        if (sp == null) return null;
-        Guid SID_STopLevelBrowser = new Guid("4C96BE40-915C-11CF-99D3-00AA004AE837");
-        Guid IID_IShellBrowser = new Guid("000214E2-0000-0000-C000-000000000046");
-        object sbObj;
-        if (sp.QueryService(ref SID_STopLevelBrowser, ref IID_IShellBrowser, out sbObj) != 0) return null;
-        IShellBrowser sb = sbObj as IShellBrowser;
-        object svObj;
-        if (sb.QueryActiveShellView(out svObj) != 0) return null;
-        return svObj as IFolderView;
-    }
+    public static int Apply(object desktopWin, string[] keys, int[] xs, int[] ys) {
+        if (desktopWin == null || keys == null || keys.Length == 0) return 0;
+        try {
+            IServiceProvider sp = desktopWin as IServiceProvider;
+            if (sp == null) return 0;
 
-    public static int PositionItems(object fvObj, IntPtr[] apidl, POINT[] apt) {
-        IFolderView fv = fvObj as IFolderView;
-        if (fv == null) return -1;
-        return fv.SelectAndPositionItems((uint)apidl.Length, apidl, apt, 1);
+            Guid SID_STopLevelBrowser = new Guid("4C96BE40-915C-11CF-99D3-00AA004AE837");
+            Guid IID_IShellBrowser = new Guid("000214E2-0000-0000-C000-000000000046");
+            object sbObj;
+            if (sp.QueryService(ref SID_STopLevelBrowser, ref IID_IShellBrowser, out sbObj) != 0) return 0;
+
+            IShellBrowser sb = sbObj as IShellBrowser;
+            if (sb == null) return 0;
+
+            object svObj;
+            if (sb.QueryActiveShellView(out svObj) != 0) return 0;
+
+            IFolderView fv = svObj as IFolderView;
+            if (fv == null) return 0;
+
+            var targets = new Dictionary<string, POINT>(StringComparer.OrdinalIgnoreCase);
+            for (int k = 0; k < keys.Length; k++) {
+                if (!string.IsNullOrEmpty(keys[k])) {
+                    targets[keys[k]] = new POINT { X = xs[k], Y = ys[k] };
+                }
+            }
+
+            dynamic win = desktopWin;
+            var folder = win.Document.Folder;
+            var items = folder.Items();
+            int total = items.Count;
+
+            var pidlList = new List<IntPtr>();
+            var ptList = new List<POINT>();
+
+            for (int i = 0; i < total; i++) {
+                string itName = "";
+                string itPath = "";
+                try {
+                    var it = items.Item(i);
+                    itName = it.Name;
+                    itPath = it.Path;
+                } catch {}
+
+                POINT pt = new POINT();
+                bool found = false;
+                if (!string.IsNullOrEmpty(itPath) && targets.TryGetValue(itPath, out pt)) {
+                    found = true;
+                } else if (!string.IsNullOrEmpty(itName) && targets.TryGetValue(itName, out pt)) {
+                    found = true;
+                }
+
+                if (found) {
+                    IntPtr pidl;
+                    if (fv.Item(i, out pidl) == 0 && pidl != IntPtr.Zero) {
+                        pidlList.Add(pidl);
+                        ptList.Add(pt);
+                    }
+                }
+            }
+
+            if (pidlList.Count > 0) {
+                int hr = fv.SelectAndPositionItems((uint)pidlList.Count, pidlList.ToArray(), ptList.ToArray(), 1);
+                return pidlList.Count;
+            }
+        } catch (Exception ex) {
+            Console.WriteLine("Apply exception: " + ex.Message);
+        }
+        return 0;
     }
 }
 "@
 
 try {
-    Add-Type -TypeDefinition $code -ReferencedAssemblies "System.Windows.Forms", "System.Drawing" -ErrorAction Stop
+    Add-Type -TypeDefinition $code -ReferencedAssemblies "System.Windows.Forms", "System.Drawing", "Microsoft.CSharp" -ErrorAction Stop
 } catch {}
 
 $shell = New-Object -ComObject Shell.Application
 $desktopWin = $shell.Windows().FindWindowSW([ref]0, [ref]0, 8, [ref]0, 1)
 if (-not $desktopWin) { exit 1 }
 
-$fv = [DesktopArranger]::GetFolderView($desktopWin)
-if (-not $fv) { exit 1 }
-
 $jsonContent = [System.IO.File]::ReadAllText($JsonFile, [System.Text.Encoding]::UTF8)
 $posDict = $jsonContent | ConvertFrom-Json
 
-$items = $desktopWin.Document.Folder.Items()
-$total = $items.Count
+$keys = New-Object System.Collections.Generic.List[string]
+$xs = New-Object System.Collections.Generic.List[int]
+$ys = New-Object System.Collections.Generic.List[int]
 
-$pidlList = New-Object System.Collections.ArrayList
-$pointList = New-Object System.Collections.ArrayList
-
-for ($i = 0; $i -lt $total; $i++) {
-    $item = $items.Item($i)
-    $name = [string]$item.Name
-    $path = [string]$item.Path
-
-    $target = $null
-    if ($path -and ($posDict.PSObject.Properties[$path])) {
-        $target = $posDict.$path
-    } elseif ($name -and ($posDict.PSObject.Properties[$name])) {
-        $target = $posDict.$name
-    }
-
-    if ($target) {
-        $pidl = [IntPtr]::Zero
-        if ($fv.Item($i, [ref]$pidl) -eq 0) {
-            $pt = New-Object POINT
-            $pt.X = [int]$target.x
-            $pt.Y = [int]$target.y
-            [void]$pidlList.Add($pidl)
-            [void]$pointList.Add($pt)
-        }
-    }
+foreach ($prop in $posDict.PSObject.Properties) {
+    $keys.Add($prop.Name)
+    $xs.Add([int]$prop.Value.x)
+    $ys.Add([int]$prop.Value.y)
 }
 
-if ($pidlList.Count -gt 0) {
-    $pArray = [IntPtr[]]$pidlList.ToArray([IntPtr])
-    $ptArray = [POINT[]]$pointList.ToArray([POINT])
-    $hr = [DesktopArranger]::PositionItems($fv, $pArray, $ptArray)
-    Write-Output "SUCCESS:$($pidlList.Count)"
+$count = [DesktopArranger]::Apply($desktopWin, $keys.ToArray(), $xs.ToArray(), $ys.ToArray())
+if ($count -eq 0) {
+    Start-Sleep -Milliseconds 350
+    $count = [DesktopArranger]::Apply($desktopWin, $keys.ToArray(), $xs.ToArray(), $ys.ToArray())
+}
+
+if ($count -gt 0) {
+    Write-Output "SUCCESS:$count"
 } else {
     Write-Output "NOOP:0"
 }

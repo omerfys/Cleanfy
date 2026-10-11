@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const {
   getRealDesktopPath,
   scanDesktop,
@@ -41,8 +41,8 @@ function getWindowsScreens() {
     return cachedWinScreens;
   }
   try {
-    const psCmd = `powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens | ForEach-Object { Write-Output ($_.DeviceName + '|' + $_.Bounds.X + '|' + $_.Bounds.Y + '|' + $_.Bounds.Width + '|' + $_.Bounds.Height + '|' + $_.Primary) }"`;
-    const out = execSync(psCmd, { encoding: 'utf-8', timeout: 3000 }).trim();
+    const psCmd = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens | ForEach-Object { "$($_.DeviceName)|$($_.Bounds.X)|$($_.Bounds.Y)|$($_.Bounds.Width)|$($_.Bounds.Height)|$($_.Primary)" }`;
+    const out = execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { encoding: 'utf-8', timeout: 5000 }).trim();
     if (out) {
       cachedWinScreens = out.split(/\r?\n/).map((line, idx) => {
         const parts = line.trim().split('|');
@@ -185,7 +185,7 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
   const screen2 = displaysList.find(d => d.index === 2) || displaysList[0]; // Orta Monitör (x=0)
   const screen3 = displaysList.find(d => d.index === 3);
 
-  // Dosyaları Windows çoklu monitör yapısına ve fiziksel yerleşime göre Ekran 1, Ekran 2, Ekran 3'e eşle
+  // Dosyaları Windows çoklu monitör sınırlarına ve yerleşimine göre Ekran 1, Ekran 2, Ekran 3'e eşle
   if (result && Array.isArray(result.files)) {
     result.files = result.files.map(file => {
       let matchedDisplay = screen2;
@@ -193,15 +193,15 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
       const dev = (file.screenDevice || '').toLowerCase();
       const vx = typeof file.virtualX === 'number' ? file.virtualX : null;
 
-      // 1. Ekran 3 (Sağ Monitör - x > 3840 veya en sağdaki test/çalışma dosyaları)
-      if (screen3 && vx !== null && vx > 3840) {
-        matchedDisplay = screen3;
-      }
-      // 2. Ekran 1 (Sol Monitör - DISPLAY1, x < 0 veya orta kümenin solundaki koordinatlar: x < 1920)
-      else if (screen1 && (dev.includes('display1') || (vx !== null && (vx < 0 || vx < 1920)))) {
+      // 1. Ekran 1 (Sol Monitör: vx < 0 veya DISPLAY1)
+      if (screen1 && (vx !== null ? vx < 0 : ((screen1.deviceName && dev === screen1.deviceName.toLowerCase()) || dev.includes('display1')))) {
         matchedDisplay = screen1;
       }
-      // 3. Ekran 2 (Orta Monitör - Kullanıcının ana çalışma masaüstü kümesi: 1920 <= x <= 3840)
+      // 2. Ekran 3 (Sağ Monitör: vx >= 1920 veya DISPLAY6)
+      else if (screen3 && (vx !== null ? vx >= 1920 : ((screen3.deviceName && dev === screen3.deviceName.toLowerCase()) || dev.includes('display6')))) {
+        matchedDisplay = screen3;
+      }
+      // 3. Ekran 2 (Orta / Ana Ekran: 0 <= vx < 1920 veya DISPLAY5)
       else {
         matchedDisplay = screen2;
       }
@@ -210,34 +210,17 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
       let localY = file.screenY;
 
       // Monitörün yerel (0..width, 0..height) koordinatlarına göre normalize et
-      if (matchedDisplay.index === 3) {
-        if (vx !== null) {
-          localX = (vx - 3840) % matchedDisplay.bounds.width;
+      const offsetX = matchedDisplay.physicalBounds?.x ?? (matchedDisplay.bounds.x ?? 0);
+      if (vx !== null) {
+        let relX = vx - offsetX;
+        if (relX >= matchedDisplay.bounds.width) {
+          relX = relX % matchedDisplay.bounds.width;
         }
-        if (typeof file.virtualY === 'number') {
-          localY = file.virtualY % matchedDisplay.bounds.height;
-        }
-      } else if (matchedDisplay.index === 1) {
-        if (vx !== null) {
-          if (vx < 0) {
-            localX = vx - matchedDisplay.bounds.x;
-          } else {
-            localX = vx % matchedDisplay.bounds.width;
-          }
-        }
-        if (typeof file.virtualY === 'number') {
-          localY = file.virtualY % matchedDisplay.bounds.height;
-        }
-      } else {
-        // Ekran 2 (Orta)
-        if (vx !== null && vx >= 1920 && vx <= 3840) {
-          localX = vx - 1920;
-        } else if (vx !== null) {
-          localX = vx % matchedDisplay.bounds.width;
-        }
-        if (typeof file.virtualY === 'number') {
-          localY = file.virtualY;
-        }
+        if (relX < 0) relX = 100;
+        localX = relX;
+      }
+      if (typeof file.virtualY === 'number') {
+        localY = file.virtualY % matchedDisplay.bounds.height;
       }
 
       // Güvenlik sınırları: simgelerin ekran kenarına taşmasını önle

@@ -354,7 +354,49 @@ export const App: React.FC = () => {
 
     setReportItems(newReportItems);
 
-    // Temizlik bitti: Eve dön ve Kutlama yap
+    // Temizlik bitti: Yeni oluşturulan kategori klasörlerini temizliğin yapıldığı aktif ekranda konumlandır
+    if (createdFolderSet.size > 0 && window.cleanfyApi?.applyDesktopPositions) {
+      const folderPositions: Record<string, { x: number; y: number }> = {};
+      const screenOffsetX = currentDisplay?.physicalBounds?.x ?? (currentDisplay?.bounds.x ?? 0);
+      const screenOffsetY = currentDisplay?.physicalBounds?.y ?? (currentDisplay?.bounds.y ?? 0);
+      const scale = currentDisplay?.scaleFactor ?? 1;
+
+      let folderIdx = 0;
+      createdFolderSet.forEach(folderName => {
+        const fullFolderPath = `${desktopPath}\\${folderName}`;
+        let localX = 35;
+        let localY = 35 + folderIdx * 102;
+
+        if (activeZones.length > 0) {
+          const firstZone = activeZones[0];
+          localX = Math.round(firstZone.x + 30 + (folderIdx % 3) * 85);
+          localY = Math.round(firstZone.y + 30 + Math.floor(folderIdx / 3) * 100);
+        }
+
+        const virtualX = Math.round(screenOffsetX + localX * scale);
+        const virtualY = Math.round(screenOffsetY + localY * scale);
+
+        folderPositions[fullFolderPath] = { x: virtualX, y: virtualY };
+        folderPositions[folderName] = { x: virtualX, y: virtualY };
+        folderIdx++;
+      });
+
+      // Windows Explorer'ın yeni oluşturulan klasörleri indexlemesi için kısa bekleme
+      await new Promise(r => setTimeout(r, 450));
+      try {
+        await window.cleanfyApi.applyDesktopPositions(folderPositions);
+      } catch (e) {
+        console.warn('Klasör konumu yerleştirme uyarısı:', e);
+      }
+    }
+
+    // Masaüstünü temizlik sonrası güncel durumla yeniden tara
+    if (desktopPath) {
+      await new Promise(r => setTimeout(r, 350));
+      handleScan(desktopPath);
+    }
+
+    // Eve dön ve Kutlama yap
     setRobotState('Geri dönüş');
     await new Promise(r => setTimeout(r, 1200));
 
@@ -473,16 +515,8 @@ export const App: React.FC = () => {
     activeDisplayFiles.forEach(f => {
       const t = targets[f.id];
       if (t) {
-        let origOffset = screenOffsetX;
-        if (currentDisplay?.index === 2) {
-          origOffset = 1920;
-        } else if (currentDisplay?.index === 3) {
-          origOffset = 3840;
-        } else if (currentDisplay?.index === 1) {
-          origOffset = (typeof f.virtualX === 'number' && f.virtualX >= 0) ? 0 : screenOffsetX;
-        }
-        const virtualX = Math.round(t.x * scale + origOffset);
-        const virtualY = Math.round(t.y * scale + screenOffsetY);
+        const virtualX = Math.round(screenOffsetX + t.x * scale);
+        const virtualY = Math.round(screenOffsetY + t.y * scale);
         realDesktopPositions[f.currentPath] = { x: virtualX, y: virtualY };
         realDesktopPositions[f.name] = { x: virtualX, y: virtualY };
       }
