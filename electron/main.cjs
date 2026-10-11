@@ -68,49 +68,99 @@ function getDisplaysList() {
   const allDisplays = screen.getAllDisplays();
   const winScreens = getWindowsScreens();
 
-  // Fiziksel sol-orta-sağ yerleşim sırası:
-  // Ekran 1: Sol Monitör (x < 0)
-  // Ekran 2: Orta Monitör (x == 0 / Ana Ekran)
-  // Ekran 3: Sağ Monitör (x > 0)
-  const sorted = [...allDisplays].sort((a, b) => a.bounds.x - b.bounds.x || a.bounds.y - b.bounds.y);
-
-  return sorted.map((d, index) => {
+  // Her Electron ekranını ilgili Windows ekranı ile eşleştir
+  const displayItems = allDisplays.map(d => {
     const isPrimary = d.id === primaryId;
-
     const winMatch = winScreens.find(ws => {
+      if (ws.deviceName && d.deviceName && ws.deviceName.toLowerCase() === d.deviceName.toLowerCase()) return true;
       if (isPrimary && ws.isPrimary) return true;
       if (Math.abs(ws.x - d.bounds.x) < 500 && Math.abs(ws.y - d.bounds.y) < 100) return true;
       return false;
-    }) || winScreens[index];
+    });
 
-    const winIndex = index + 1; // 1: Sol, 2: Orta (x=0), 3: Sağ
-    const winDeviceName = winMatch ? winMatch.deviceName : `\\\\.\\DISPLAY${index + 1}`;
-
-    let positionHint = 'Orta';
-    if (d.bounds.x < 0) positionHint = 'Sol';
-    else if (d.bounds.x > 0) positionHint = 'Sağ';
-
-    const monitorLabel = d.label ? ` • ${d.label}` : '';
-    const label = `Ekran ${winIndex} (${d.bounds.width}x${d.bounds.height}${monitorLabel})${isPrimary ? ' • Ana Ekran' : ''}`;
-
+    const devName = winMatch ? winMatch.deviceName : (d.deviceName || '');
     return {
-      id: d.id,
-      index: winIndex,
-      name: label,
-      deviceName: winDeviceName,
-      positionHint,
-      bounds: d.bounds,
-      physicalBounds: winMatch ? {
-        x: winMatch.x,
-        y: winMatch.y,
-        width: winMatch.width,
-        height: winMatch.height,
-      } : d.bounds,
-      workArea: d.workArea,
-      scaleFactor: d.scaleFactor,
+      d,
       isPrimary,
+      winMatch,
+      devName,
     };
   });
+
+  let assignedList = [];
+
+  // 3 ekranlı kurulumda:
+  // Ekran 1: Sol Monitör (x < 0 veya DISPLAY1 veya N156HMA)
+  // Ekran 2: Orta Monitör (DISPLAY6 / S24F350 / x >= 1920 - Ana masaüstü çalışma ekranı, 128 dosya)
+  // Ekran 3: Sağ Monitör (DISPLAY5 / VG259QMRL5A / x == 0 - Sağdaki ekran, test dosyası)
+  if (displayItems.length === 3) {
+    const screen1Item = displayItems.find(it => it.d.bounds.x < 0 || it.devName.toLowerCase().includes('display1') || it.d.label?.includes('N156HMA'));
+    const screen2Item = displayItems.find(it => it.devName.toLowerCase().includes('display6') || it.d.label?.includes('S24F350') || it.d.bounds.x >= 1920);
+    const screen3Item = displayItems.find(it => it !== screen1Item && it !== screen2Item);
+
+    const ordered = [
+      { item: screen1Item, index: 1, pos: 'Sol', labelSuffix: 'Sol Monitör' },
+      { item: screen2Item, index: 2, pos: 'Orta', labelSuffix: 'Orta Monitör' },
+      { item: screen3Item, index: 3, pos: 'Sağ', labelSuffix: 'Sağ Monitör' },
+    ].filter(o => o.item);
+
+    assignedList = ordered.map(({ item, index, pos, labelSuffix }) => {
+      const { d, isPrimary, winMatch, devName } = item;
+      const monitorLabel = d.label ? ` • ${d.label}` : '';
+      const name = `Ekran ${index} (${d.bounds.width}x${d.bounds.height}${monitorLabel}) • ${labelSuffix}${isPrimary ? ' • Ana Ekran' : ''}`;
+
+      return {
+        id: d.id,
+        index,
+        name,
+        deviceName: devName || `\\\\.\\DISPLAY${index}`,
+        positionHint: pos,
+        bounds: d.bounds,
+        physicalBounds: winMatch ? {
+          x: winMatch.x,
+          y: winMatch.y,
+          width: winMatch.width,
+          height: winMatch.height,
+        } : d.bounds,
+        workArea: d.workArea,
+        scaleFactor: d.scaleFactor,
+        isPrimary,
+      };
+    });
+  } else {
+    // 1 veya 2 ekranlı konfigürasyonlarda fiziksel X koordinatına göre sırala
+    const sorted = [...displayItems].sort((a, b) => a.d.bounds.x - b.d.bounds.x || a.d.bounds.y - b.d.bounds.y);
+    assignedList = sorted.map((item, idx) => {
+      const { d, isPrimary, winMatch, devName } = item;
+      const index = idx + 1;
+      let pos = 'Orta';
+      if (d.bounds.x < 0) pos = 'Sol';
+      else if (d.bounds.x > 0) pos = 'Sağ';
+
+      const monitorLabel = d.label ? ` • ${d.label}` : '';
+      const name = `Ekran ${index} (${d.bounds.width}x${d.bounds.height}${monitorLabel})${isPrimary ? ' • Ana Ekran' : ''}`;
+
+      return {
+        id: d.id,
+        index,
+        name,
+        deviceName: devName || `\\\\.\\DISPLAY${index}`,
+        positionHint: pos,
+        bounds: d.bounds,
+        physicalBounds: winMatch ? {
+          x: winMatch.x,
+          y: winMatch.y,
+          width: winMatch.width,
+          height: winMatch.height,
+        } : d.bounds,
+        workArea: d.workArea,
+        scaleFactor: d.scaleFactor,
+        isPrimary,
+      };
+    });
+  }
+
+  return assignedList.sort((a, b) => a.index - b.index);
 }
 
 function createMainWindow() {
@@ -182,8 +232,8 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
   const result = await scanDesktop(customPath);
   const displaysList = getDisplaysList();
   const screen1 = displaysList.find(d => d.index === 1);
-  const screen2 = displaysList.find(d => d.index === 2) || displaysList[0]; // Orta Monitör (x=0)
-  const screen3 = displaysList.find(d => d.index === 3);
+  const screen2 = displaysList.find(d => d.index === 2) || displaysList[0]; // Orta Monitör (Samsung / DISPLAY6 / Ana Çalışma Ekranı)
+  const screen3 = displaysList.find(d => d.index === 3); // Sağ Monitör (ASUS TUF / DISPLAY5 / Test Ekranı)
 
   // Dosyaları Windows çoklu monitör sınırlarına ve yerleşimine göre Ekran 1, Ekran 2, Ekran 3'e eşle
   if (result && Array.isArray(result.files)) {
@@ -193,15 +243,18 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
       const dev = (file.screenDevice || '').toLowerCase();
       const vx = typeof file.virtualX === 'number' ? file.virtualX : null;
 
-      // 1. Ekran 1 (Sol Monitör: vx < 0 veya DISPLAY1)
-      if (screen1 && (vx !== null ? vx < 0 : ((screen1.deviceName && dev === screen1.deviceName.toLowerCase()) || dev.includes('display1')))) {
+      // 1. Ekran 1 (Sol Monitör: DISPLAY1 veya vx < 0)
+      if (screen1 && (dev.includes('display1') || (vx !== null && vx < 0))) {
         matchedDisplay = screen1;
       }
-      // 2. Ekran 3 (Sağ Monitör: vx >= 1920 veya DISPLAY6)
-      else if (screen3 && (vx !== null ? vx >= 1920 : ((screen3.deviceName && dev === screen3.deviceName.toLowerCase()) || dev.includes('display6')))) {
+      // 2. Ekran 3 (Sağ Monitör: DISPLAY5 veya 0 <= vx < 1920)
+      else if (screen3 && (dev.includes('display5') || (vx !== null && vx >= 0 && vx < 1920))) {
         matchedDisplay = screen3;
       }
-      // 3. Ekran 2 (Orta / Ana Ekran: 0 <= vx < 1920 veya DISPLAY5)
+      // 3. Ekran 2 (Orta Monitör: DISPLAY6 veya vx >= 1920 veya varsayılan masaüstü)
+      else if (screen2 && (dev.includes('display6') || (vx !== null && vx >= 1920))) {
+        matchedDisplay = screen2;
+      }
       else {
         matchedDisplay = screen2;
       }
