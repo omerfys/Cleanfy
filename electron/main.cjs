@@ -68,21 +68,23 @@ function getDisplaysList() {
   const allDisplays = screen.getAllDisplays();
   const winScreens = getWindowsScreens();
 
-  const mapped = allDisplays.map((d, index) => {
+  // Monitörleri fiziksel konumlarına göre soldan sağa sırala:
+  // Ekran 1: Sol Monitör (x < 0)
+  // Ekran 2: Orta Monitör (x = 0 / Ana Ekran)
+  // Ekran 3: Sağ Monitör (x > 0)
+  const sorted = [...allDisplays].sort((a, b) => a.bounds.x - b.bounds.x || a.bounds.y - b.bounds.y);
+
+  return sorted.map((d, index) => {
     const isPrimary = d.id === primaryId;
 
-    // Windows resmi ekran bilgisiyle donanımsal eşleme
-    let winMatch = null;
-    if (winScreens.length > 0) {
-      if (isPrimary) {
-        winMatch = winScreens.find(ws => ws.isPrimary);
-      }
-      if (!winMatch) {
-        winMatch = winScreens[index];
-      }
-    }
+    // Windows resmi donanım ekran bilgisiyle koordinat/birincil bazlı eşleme
+    const winMatch = winScreens.find(ws => {
+      if (isPrimary && ws.isPrimary) return true;
+      if (Math.abs(ws.x - d.bounds.x) < 500 && Math.abs(ws.y - d.bounds.y) < 100) return true;
+      return false;
+    }) || winScreens[index];
 
-    const winIndex = winMatch ? winMatch.windowsIndex : (index + 1);
+    const winIndex = index + 1; // 1: Sol, 2: Orta, 3: Sağ
     const winDeviceName = winMatch ? winMatch.deviceName : `\\\\.\\DISPLAY${index + 1}`;
 
     let positionHint = 'Orta';
@@ -125,9 +127,6 @@ function getDisplaysList() {
       isPrimary,
     };
   });
-
-  // Windows ekran numaralarına göre sırala (Ekran 1, Ekran 2, Ekran 3)
-  return mapped.sort((a, b) => a.index - b.index);
 }
 
 function createMainWindow() {
