@@ -219,7 +219,7 @@ export const App: React.FC = () => {
       return;
     }
 
-    if (mode === 'scan_preview' && !isPreviewOpen) {
+    if ((mode === 'scan_preview' || activeZones.length > 0) && !isPreviewOpen) {
       setIsPreviewOpen(true);
       return;
     }
@@ -514,7 +514,7 @@ export const App: React.FC = () => {
     setIsScreenModalOpen(false);
   };
 
-  // Çoklu Alan Güncellemesi (Ekleme / Silme / Düzenleme)
+  // Çoklu Alan Güncellemesi (Ekleme / Silme / Düzenleme - Sadece Planı Günceller, Masaüstünü Değiştirmez!)
   const handleUpdateZones = (newZones: CustomZone[]) => {
     if (newZones.length === 0) {
       setActiveZones([]);
@@ -536,37 +536,7 @@ export const App: React.FC = () => {
     setActiveZones(zonesWithCounts);
     setZoneTargets(targets);
 
-    // 1. Gerçek Windows masaüstündeki simgeleri doğrudan seçilen alan ve ekran koordinatlarına yerleştir
-    const realDesktopPositions: Record<string, { x: number; y: number }> = {};
-    let screenOffsetX = 0;
-    if (currentDisplay?.index === 2) {
-      screenOffsetX = 1920;
-    } else if (currentDisplay?.index === 3) {
-      screenOffsetX = 3840;
-    } else {
-      screenOffsetX = 0;
-    }
-    const screenOffsetY = currentDisplay?.physicalBounds?.y ?? (currentDisplay?.bounds.y ?? 0);
-    const scale = currentDisplay?.scaleFactor ?? 1;
-
-    activeDisplayFiles.forEach(f => {
-      const t = targets[f.id];
-      if (t) {
-        const virtualX = Math.round(screenOffsetX + t.x * scale);
-        const virtualY = Math.round(screenOffsetY + t.y * scale);
-        realDesktopPositions[f.currentPath] = { x: virtualX, y: virtualY };
-        realDesktopPositions[f.name] = { x: virtualX, y: virtualY };
-      }
-    });
-
-    if (window.cleanfyApi?.applyDesktopPositions) {
-      window.cleanfyApi.applyDesktopPositions(realDesktopPositions).catch(err => {
-        console.warn('Masaüstü simge yerleştirme uyarısı:', err);
-      });
-    }
-
-    // 2. Dosyaların hedef kategorilerini ve gerçek hedef klasör yollarını seçilen alanlara göre güncelle
-    // Böylece robot süpürge düzenleme/temizleme yaptığında dosyalar simülasyonda kalmayıp o alanlara taşınır
+    // Dosyaların hedef kategorilerini ve hedef klasör yollarını taslak plana göre güncelle (önizleme tablosu için)
     const fileIdToZone = new Map<string, CustomZone>();
     zonesWithCounts.forEach(zone => {
       zone.matchedFileIds.forEach(id => {
@@ -590,11 +560,58 @@ export const App: React.FC = () => {
         return f;
       })
     );
+  };
+
+  // Kullanıcı Planı Onayladığında Alanları Gerçek Masaüstüne Uygula ve Dosyaları Diz
+  const handleApplyZonePlan = async () => {
+    if (activeZones.length === 0) return;
+
+    const screenW = currentDisplay?.bounds.width || window.innerWidth || 1920;
+    const screenH = currentDisplay?.bounds.height || window.innerHeight || 1080;
+
+    const { targets } = computeMultiZoneArrangement(
+      activeDisplayFiles,
+      activeZones,
+      filePositionsRef.current,
+      screenW,
+      screenH
+    );
+
+    const realDesktopPositions: Record<string, { x: number; y: number }> = {};
+    let screenOffsetX = 0;
+    if (currentDisplay?.index === 2) {
+      screenOffsetX = 1920;
+    } else if (currentDisplay?.index === 3) {
+      screenOffsetX = 3840;
+    } else {
+      screenOffsetX = 0;
+    }
+    const screenOffsetY = currentDisplay?.physicalBounds?.y ?? (currentDisplay?.bounds.y ?? 0);
+    const scale = currentDisplay?.scaleFactor ?? 1;
+
+    activeDisplayFiles.forEach(f => {
+      const t = targets[f.id];
+      if (t) {
+        const virtualX = Math.round(screenOffsetX + t.x * scale);
+        const virtualY = Math.round(screenOffsetY + t.y * scale);
+        realDesktopPositions[f.currentPath] = { x: virtualX, y: virtualY };
+        realDesktopPositions[f.name] = { x: virtualX, y: virtualY };
+      }
+    });
 
     setRobotState('Düzenleme');
+
+    if (window.cleanfyApi?.applyDesktopPositions) {
+      try {
+        await window.cleanfyApi.applyDesktopPositions(realDesktopPositions);
+      } catch (err) {
+        console.warn('Masaüstü simge yerleştirme uyarısı:', err);
+      }
+    }
+
     setTimeout(() => {
       setRobotState('Dolaşma');
-    }, 3200);
+    }, 2800);
   };
 
   const handleClearZones = () => {
@@ -1013,11 +1030,16 @@ export const App: React.FC = () => {
             <button
               onClick={() => setIsPreviewOpen(true)}
               disabled={files.length === 0}
-              className="flex items-center justify-center gap-1 py-1 px-2 rounded-lg glass-icon-btn text-slate-300 hover:text-white text-[10px] font-medium disabled:opacity-40"
+              className={`flex items-center justify-center gap-1 py-1 px-2 rounded-lg glass-icon-btn text-slate-300 hover:text-white text-[10px] font-medium disabled:opacity-40 relative ${
+                activeZones.length > 0 ? '!border-cyan-400/50 !text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.25)]' : ''
+              }`}
               title="Düzenleme Planı ve Önizleme"
             >
               <ListFilter className="w-3 h-3 text-cyan-400" />
               <span>Plan</span>
+              {activeZones.length > 0 && (
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse absolute top-1 right-1" />
+              )}
             </button>
 
             <button
@@ -1053,6 +1075,11 @@ export const App: React.FC = () => {
           currentDisplay={currentDisplay}
           onClose={() => setIsZoneSelectorOpen(false)}
           onUpdateZones={handleUpdateZones}
+          onReviewPlan={() => {
+            setIsZoneSelectorOpen(false);
+            setIsPreviewOpen(true);
+          }}
+          onConfirmPlan={handleApplyZonePlan}
         />
 
         <ScreenSelectorModal
@@ -1068,8 +1095,10 @@ export const App: React.FC = () => {
           isOpen={isPreviewOpen}
           onClose={() => setIsPreviewOpen(false)}
           files={activeDisplayFiles}
+          activeZones={activeZones}
           onUpdateFile={handleUpdateFile}
           onConfirmAndClean={handleStartCleaning}
+          onConfirmZonePlan={handleApplyZonePlan}
         />
 
         <ReportModal

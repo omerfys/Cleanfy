@@ -7,7 +7,7 @@ import {
   ZONE_COLOR_THEMES,
   matchFilesByCustomRequest,
 } from '../services/zoneOrganizer';
-import { Sparkles, X, Crosshair, RotateCcw, CheckCircle2, Plus, Check, Monitor } from 'lucide-react';
+import { Sparkles, X, Crosshair, RotateCcw, CheckCircle2, Plus, Check, Monitor, ListFilter } from 'lucide-react';
 
 interface ZoneSelectorOverlayProps {
   isOpen: boolean;
@@ -17,6 +17,8 @@ interface ZoneSelectorOverlayProps {
   currentDisplay?: DisplayInfo | null;
   onClose: () => void;
   onUpdateZones: (newZones: CustomZone[]) => void;
+  onReviewPlan?: () => void;
+  onConfirmPlan?: () => void;
 }
 
 export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
@@ -27,6 +29,8 @@ export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
   currentDisplay,
   onClose,
   onUpdateZones,
+  onReviewPlan,
+  onConfirmPlan,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [startPt, setStartPt] = useState<{ x: number; y: number } | null>(null);
@@ -261,15 +265,35 @@ export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
             <span className="hidden sm:inline">Yeni Alan: {nextColorTheme.name}</span>
           </div>
 
-          {/* Tamamla Butonu */}
-          <button
-            onClick={onClose}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500/80 to-emerald-600/80 hover:from-emerald-500 hover:to-emerald-600 border border-white/25 text-white text-[11px] font-bold shadow-lg shadow-emerald-500/30 cursor-pointer transition-all"
-            title="Seçimleri Onayla ve Masaüstüne Dön"
-          >
-            <Check className="w-3.5 h-3.5" />
-            <span>Tamamla</span>
-          </button>
+          {activeZones.length > 0 ? (
+            <>
+              {/* Planı İncele ve Onayla Butonu */}
+              <button
+                onClick={() => {
+                  onClose();
+                  onReviewPlan?.();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-white/20 text-cyan-300 hover:text-cyan-200 text-[11px] font-bold shadow-md cursor-pointer transition-all"
+                title="Düzenleme planındaki dosyaları incele ve filtrele"
+              >
+                <ListFilter className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Planı İncele</span>
+              </button>
+
+              {/* Planı Onayla ve Diz Butonu */}
+              <button
+                onClick={() => {
+                  onClose();
+                  onConfirmPlan?.();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500/90 to-teal-600/90 hover:from-emerald-500 hover:to-teal-600 border border-white/25 text-white text-[11px] font-bold shadow-lg shadow-emerald-500/30 cursor-pointer transition-all hover:scale-[1.02]"
+                title="Planı onayla ve dosyaları alanlara diz"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Planı Onayla & Diz</span>
+              </button>
+            </>
+          ) : null}
 
           {/* Kapat Butonu */}
           <button
@@ -399,7 +423,7 @@ export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
                   {activeZones.length + 1}. Alan İsteği ({nextColorTheme.name})
                 </h3>
                 <p className="text-[10px] text-slate-300 leading-tight">
-                  Bu alana hangi dosyaların dizileceğini yazın
+                  Bu alana eklenecek dosyalar plana kaydedilir, onayladığınızda dizilir
                 </p>
               </div>
             </div>
@@ -488,7 +512,7 @@ export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
                 className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-white text-xs font-bold disabled:opacity-40 cursor-pointer shadow-lg transition-transform hover:scale-[1.02]"
               >
                 <Plus className="w-3.5 h-3.5 text-white" />
-                <span>Bu Alanı Ekle & Diz ({matched.length})</span>
+                <span>+ Bu Alanı Plana Ekle ({matched.length})</span>
               </button>
             </div>
           </form>

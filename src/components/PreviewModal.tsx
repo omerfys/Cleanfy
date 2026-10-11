@@ -1,22 +1,27 @@
 import React, { useState } from 'react';
 import { FileItem } from '../types';
 import { ALL_CATEGORY_LIST, CATEGORY_COLORS } from '../services/categorization';
-import { X, Check, CheckSquare, Square, FolderCheck, Play, ShieldCheck, ChevronRight } from 'lucide-react';
+import { CustomZone } from '../services/zoneOrganizer';
+import { X, Check, CheckSquare, Square, FolderCheck, Play, ShieldCheck, ChevronRight, Sparkles } from 'lucide-react';
 
 interface PreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   files: FileItem[];
+  activeZones?: CustomZone[];
   onUpdateFile: (fileId: string, updates: Partial<FileItem>) => void;
   onConfirmAndClean: () => void;
+  onConfirmZonePlan?: () => void;
 }
 
 export const PreviewModal: React.FC<PreviewModalProps> = ({
   isOpen,
   onClose,
   files,
+  activeZones,
   onUpdateFile,
   onConfirmAndClean,
+  onConfirmZonePlan,
 }) => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('Tümü');
 
@@ -69,6 +74,26 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
 
         {/* Güvenlik Notu ve Kategori Filtre Çubuğu */}
         <div className="p-4 bg-slate-900/50 border-b border-slate-800/80 flex flex-col gap-3">
+          {activeZones && activeZones.length > 0 && (
+            <div className="flex items-center gap-2.5 px-3 py-2 bg-gradient-to-r from-cyan-500/15 via-blue-500/15 to-transparent border border-cyan-500/30 rounded-xl text-cyan-200 text-xs">
+              <span className="text-base shrink-0">🎯</span>
+              <div className="flex-1">
+                <div className="font-bold text-white flex items-center gap-2">
+                  <span>Özel Alan Düzenleme Planı:</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono">
+                    {activeZones.length} Alan Belirlendi
+                  </span>
+                </div>
+                <div className="text-slate-300 text-[11px] mt-0.5">
+                  {activeZones.map(z => `${z.label} (${z.matchedCount} dosya)`).join(' • ')}
+                </div>
+                <div className="text-[10px] text-cyan-400 mt-0.5 font-medium">
+                  Planı onayladığınızda dosyalarınız belirlediğiniz bu alanlara göre masaüstünde hizalanacaktır.
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-lg text-cyan-300 text-xs">
             <ShieldCheck className="w-4 h-4 text-cyan-400 flex-shrink-0" />
             <span>
@@ -190,13 +215,21 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
             <button
               onClick={() => {
                 onClose();
-                onConfirmAndClean();
+                if (onConfirmZonePlan && activeZones && activeZones.length > 0) {
+                  onConfirmZonePlan();
+                } else {
+                  onConfirmAndClean();
+                }
               }}
               disabled={includedCount === 0}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 cursor-pointer"
             >
               <Play className="w-4 h-4 fill-white" />
-              <span>Planı Onayla ve Temizliği Başlat</span>
+              <span>
+                {activeZones && activeZones.length > 0
+                  ? 'Planı Onayla ve Alanlara Diz'
+                  : 'Planı Onayla ve Temizliği Başlat'}
+              </span>
             </button>
           </div>
         </div>
