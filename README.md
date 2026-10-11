@@ -25,6 +25,13 @@
 
 [Başlangıç](#-hızlı-başlangıç--kurulum) • [Özellikler](#-özellikler-features) • [Selection Box](#-selection-box-ile-bölgesel-özel-dizilim) • [Mimari](#-mimari--çalışma-prensibi) • [Güvenlik Garantisi](#-kesin-güvenlik--veri-bütünlüğü-garantisi) • [English Overview](#-english-overview)
 
+<br>
+
+<div align="center">
+  <img src="docs/assets/1-hero-physics-demo.gif" width="94%" alt="Cleanfy Robot Physics & LiDAR Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+  <p align="center"><em>▲ Gerçekçi 2.5D robot süpürge, LiDAR tarama lazeri, dönen fırçalar ve Matter.js sert cisim çarpışma fiziği</em></p>
+</div>
+
 ---
 
 </div>
@@ -90,25 +97,15 @@ Klasik masaüstü temizleyiciler ve düzenleme betikleri genellikle sıkıcı, r
 
 Cleanfy, tüm masaüstünü toptan temizlemek yerine belirli bölgeleri özelleştirmenize olanak tanır:
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                       MASAÜSTÜ EKRANI                           │
-│                                                                 │
-│  [Belgeler]       [Kodlar]                                      │
-│                                           ┌──────────────────┐  │
-│                                           │  SELECTION BOX   │  │
-│  [Fotoğraflar]                            │  "Sadece Oyunlar"│  │
-│                                           │  🎮 Cyberpunk    │  │
-│               Robot Süpürge               │  🎮 Valorant     │  │
-│                (Devriye)                  │  🎮 Stardew      │  │
-│                                           └──────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-```
+<div align="center">
+  <img src="docs/assets/2-selection-box-zones.gif" width="94%" alt="Cleanfy Selection Box Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+  <p align="center"><em>▲ Ekranda dikdörtgen alan çizimi, doğal dil istek ("Buraya sadece oyunları koy"), plan onaylama ve otomatik ızgara yerleşimi</em></p>
+</div>
 
 1. Sağ üst menüden **`🎯 Alan Seç & Özel Diz`** butonuna tıklayın.
 2. Farenizle masaüstünün istediğiniz köşesinde bir dikdörtgen çizin.
 3. Açılan Glassmorphism penceresinde hazır çiplerden (`🎮 Sadece Oyunlar`, `📁 Sadece Klasörler`, `📦 Sadece Arşivler`, `☕ Jar & Kodlar`, vb.) birini seçin ya da doğal dille isteğinizi yazın.
-4. **Uygula** dediğinizde robot süpürge o bölgeye yönelir; eşleşen dosyalar yumuşak bir kayma animasyonuyla alana yerleşirken, diğer dosyalar otomatik olarak bölge dışına taşınır.
+4. **`+ Bu Alanı Plana Ekle`** dedikten sonra **`Planı Onayla & Diz`** butonuna tıkladığınızda dosyalarınız seçtiğiniz bölgeye nizami olarak yerleştirilir.
 
 ---
 
@@ -216,6 +213,11 @@ npm run package
 
 ## 🎛️ Glassmorphism Kontrol Paneli
 
+<div align="center">
+  <img src="docs/assets/3-multi-screen-hud.gif" width="94%" alt="Cleanfy Multi-Screen & HUD Drag Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+  <p align="center"><em>▲ Sürüklenebilir minimalist Glassmorphism HUD ve Ekran 1, Ekran 2, Ekran 3 çoklu monitör geçişi</em></p>
+</div>
+
 Sağ üst köşedeki kompakt panel üzerinden tüm operasyonları yönetebilirsiniz:
 
 | Buton / Eleman | İşlev |
@@ -232,6 +234,11 @@ Sağ üst köşedeki kompakt panel üzerinden tüm operasyonları yönetebilirsi
 ---
 
 ## ⏪ Geri Alma (Undo) & Raporlama
+
+<div align="center">
+  <img src="docs/assets/4-preview-plan-undo.gif" width="94%" alt="Cleanfy Preview Plan & Undo Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+  <p align="center"><em>▲ Masaüstü Düzenleme Planı inceleme, onaylama ve işlem sonrası tek tıkla Geri Al (Undo) güvencesi</em></p>
+</div>
 
 - **Oturum Bazlı Geri Alma:** Temizlik işlemi tamamlandığında oturum kaydı hafızaya alınır. `Geri Al` butonuna bastığınızda taşınan tüm dosyalar güvenle orijinal masaüstü konumlarına geri çekilir.
 - **Dışa Aktarma Formatları:**
