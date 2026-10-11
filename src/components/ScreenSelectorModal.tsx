@@ -6,7 +6,7 @@ interface ScreenSelectorModalProps {
   isOpen: boolean;
   displays: DisplayInfo[];
   currentDisplay: DisplayInfo | null;
-  files?: Array<{ displayId?: number | null; displayIndex?: number | null }>;
+  files?: Array<{ displayId?: number | null }>;
   onSelectDisplay: (displayId: number) => void;
   onClose: () => void;
 }
@@ -77,60 +77,62 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
 
           <div className="relative w-full h-32 rounded-xl bg-slate-900/80 border border-white/10 p-3 flex items-center justify-center overflow-hidden">
             <div className="relative w-full h-full flex items-center justify-center">
-              {displays.map((disp) => {
-                const isSelected = currentDisplay?.id === disp.id;
-                const fileCount = files.filter(f => f.displayId === disp.id || f.displayIndex === disp.index).length;
-                
-                // Fiziksel sol-orta-sağ yerleşimi ekranın gerçek X ofsetine göre sırala
-                const physicalOrder = [...displays].sort((a, b) => a.bounds.x - b.bounds.x);
-                const slotIdx = physicalOrder.findIndex(d => d.id === disp.id);
+              {(() => {
+                // Fiziksel sol-orta-sağ yerleşim sırası (Mini-harita düzeni)
+                const physicallySorted = [...displays].sort((a, b) => a.bounds.x - b.bounds.x || a.bounds.y - b.bounds.y);
                 const count = Math.max(displays.length, 1);
                 const slotWidth = 100 / count;
                 const relWidth = Math.max(26, slotWidth - 3);
-                const relLeft = (slotIdx >= 0 ? slotIdx : disp.index - 1) * slotWidth + 1.5;
-                const relHeight = Math.max(50, (disp.bounds.height / maxH) * 85);
 
-                return (
-                  <button
-                    key={disp.id}
-                    onClick={() => {
-                      onSelectDisplay(disp.id);
-                    }}
-                    style={{
-                      left: `${relLeft}%`,
-                      width: `${relWidth}%`,
-                      height: `${relHeight}%`,
-                    }}
-                    className={`absolute flex flex-col items-center justify-center p-1.5 rounded-lg border transition-all duration-300 cursor-pointer ${
-                      isSelected
-                        ? 'bg-cyan-500/25 border-cyan-400 text-white shadow-lg shadow-cyan-500/30 ring-2 ring-cyan-400/40 z-10 scale-[1.02]'
-                        : 'bg-slate-800/60 border-white/15 text-slate-400 hover:bg-slate-700/60 hover:text-slate-200 hover:border-white/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1">
-                      <Monitor className={`w-3.5 h-3.5 ${isSelected ? 'text-cyan-300' : 'text-slate-400'}`} />
-                      <span className="font-bold text-[11px] leading-none">
-                        Ekran {disp.index}
+                return displays.map((disp) => {
+                  const isSelected = currentDisplay?.id === disp.id;
+                  const fileCount = files.filter(f => f.displayId === disp.id).length;
+                  const physicalIdx = physicallySorted.findIndex(d => d.id === disp.id);
+                  const relLeft = (physicalIdx >= 0 ? physicalIdx : 0) * slotWidth + 1.5;
+                  const relHeight = Math.max(50, (disp.bounds.height / maxH) * 85);
+
+                  return (
+                    <button
+                      key={disp.id}
+                      onClick={() => {
+                        onSelectDisplay(disp.id);
+                      }}
+                      style={{
+                        left: `${relLeft}%`,
+                        width: `${relWidth}%`,
+                        height: `${relHeight}%`,
+                      }}
+                      className={`absolute flex flex-col items-center justify-center p-1.5 rounded-lg border transition-all duration-300 cursor-pointer ${
+                        isSelected
+                          ? 'bg-cyan-500/25 border-cyan-400 text-white shadow-lg shadow-cyan-500/30 ring-2 ring-cyan-400/40 z-10 scale-[1.02]'
+                          : 'bg-slate-800/60 border-white/15 text-slate-400 hover:bg-slate-700/60 hover:text-slate-200 hover:border-white/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1">
+                        <Monitor className={`w-3.5 h-3.5 ${isSelected ? 'text-cyan-300' : 'text-slate-400'}`} />
+                        <span className="font-bold text-[11px] leading-none">
+                          Ekran {disp.index}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-mono opacity-80 mt-0.5">
+                        {disp.bounds.width}×{disp.bounds.height}
                       </span>
-                    </div>
-                    <span className="text-[9px] font-mono opacity-80 mt-0.5">
-                      {disp.bounds.width}×{disp.bounds.height}
-                    </span>
-                    <span className="text-[9px] font-semibold text-cyan-300 mt-0.5">
-                      📄 {fileCount} Dosya
-                    </span>
-                  </button>
-                );
-              })}
+                      <span className="text-[9px] font-semibold text-cyan-300 mt-0.5">
+                        📄 {fileCount} Dosya
+                      </span>
+                    </button>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
 
         {/* ── DETAYLI MONİTÖR KARTLARI LİSTESİ ── */}
         <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
-          {displays.map((disp) => {
+          {[...displays].sort((a, b) => a.index - b.index).map((disp) => {
             const isSelected = currentDisplay?.id === disp.id;
-            const fileCount = files.filter(f => f.displayId === disp.id || f.displayIndex === disp.index).length;
+            const fileCount = files.filter(f => f.displayId === disp.id).length;
             return (
               <div
                 key={disp.id}

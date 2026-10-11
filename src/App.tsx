@@ -31,7 +31,8 @@ import {
   ChevronUp,
   Cpu,
   Crosshair,
-  Monitor
+  Monitor,
+  GripVertical
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -48,11 +49,13 @@ export const App: React.FC = () => {
   const [currentDisplay, setCurrentDisplay] = useState<DisplayInfo | null>(null);
   const [isScreenModalOpen, setIsScreenModalOpen] = useState<boolean>(false);
   const [wallpaperUrl, setWallpaperUrl] = useState<string | null>(null);
+  const [screenFilterMode, setScreenFilterMode] = useState<'current_screen' | 'all_screens'>('current_screen');
+
   // Aktif Monitördeki Dosyalar: Farklı bir ekrana geçince SADECE o ekranın üzerindeki dosyaları simüle et
   const activeDisplayFiles = useMemo(() => {
-    if (!currentDisplay) return files;
-    return files.filter(f => f.displayId === currentDisplay.id || f.displayIndex === currentDisplay.index);
-  }, [files, currentDisplay]);
+    if (screenFilterMode === 'all_screens' || !currentDisplay) return files;
+    return files.filter(f => f.displayId === currentDisplay.id);
+  }, [files, currentDisplay, screenFilterMode]);
 
   // İşlem Durumları
   const [isScanning, setIsScanning] = useState<boolean>(false);
@@ -67,6 +70,22 @@ export const App: React.FC = () => {
   // HUD Panelini Daraltma / Genişletme (İlk açılışta varsayılan olarak kapalı)
   const [isHudCollapsed, setIsHudCollapsed] = useState<boolean>(true);
   const [cleanedFileIds, setCleanedFileIds] = useState<Set<string>>(new Set());
+
+  // HUD Konumu ve Sürükleme (Drag & Drop) Durumu
+  const [hudPos, setHudPos] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const saved = localStorage.getItem('cleanfy_hud_pos');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isDraggingHud, setIsDraggingHud] = useState<boolean>(false);
+  const isDraggingHudRef = useRef<boolean>(false);
+  const draggedJustNowRef = useRef<boolean>(false);
+  const hudContainerRef = useRef<HTMLDivElement>(null);
+  const hudTriggerRef = useRef<HTMLDivElement>(null);
+  const hudPopoverRef = useRef<HTMLDivElement>(null);
 
   // Özel Alan Seçimi (Selection Box) & Çoklu Bölgesel Yerleşim Durumları
   const [isZoneSelectorOpen, setIsZoneSelectorOpen] = useState<boolean>(false);
@@ -98,17 +117,6 @@ export const App: React.FC = () => {
     estimatedSecondsRemaining: 0,
   });
 
-  // Ekran değiştiğinde veya dosyalar güncellendiğinde aktif ekranın dosya sayılarını anında güncelle
-  useEffect(() => {
-    if (!isCleaning) {
-      setStats(prev => ({
-        ...prev,
-        totalScanned: activeDisplayFiles.length,
-        categorized: activeDisplayFiles.length,
-      }));
-    }
-  }, [activeDisplayFiles, isCleaning]);
-
   // Modal açıkken fare tıklamalarını yakala, kapalıyken masaüstüne geçir
   useEffect(() => {
     if (window.cleanfyApi) {
@@ -125,22 +133,22 @@ export const App: React.FC = () => {
     async function initDesktop() {
       if (window.cleanfyApi) {
         try {
-          const dispList = await window.cleanfyApi.getDisplays();
-          if (dispList && dispList.length > 0) {
-            setDisplays(dispList);
-            const target = dispList.find(d => d.isPrimary) || dispList.find(d => d.index === 1) || dispList[0];
-            setCurrentDisplay(target);
-          }
-        } catch (err) {
-          console.error('Ekran listesi alınamadı:', err);
-        }
-
-        try {
           const path = await window.cleanfyApi.getDesktopPath();
           setDesktopPath(path);
           handleScan(path);
         } catch (err) {
           console.error('Masaüstü yolu alınamadı:', err);
+        }
+
+        try {
+          const dispList = await window.cleanfyApi.getDisplays();
+          if (dispList && dispList.length > 0) {
+            setDisplays(dispList);
+            const target = dispList.find(d => d.isPrimary) || dispList.find(d => d.index === 2) || dispList[0];
+            setCurrentDisplay(target);
+          }
+        } catch (err) {
+          console.error('Ekran listesi alınamadı:', err);
         }
 
         try {
@@ -177,14 +185,11 @@ export const App: React.FC = () => {
         setExistingFolders(result.existingFolders);
         setFiles(result.files);
 
-        const screenFiles = currentDisplay
-          ? result.files.filter(f => f.displayId === currentDisplay.id || f.displayIndex === currentDisplay.index)
-          : result.files;
-
+        const targetFiles = currentDisplay ? result.files.filter(f => f.displayId === currentDisplay.id) : result.files;
         setStats(prev => ({
           ...prev,
-          totalScanned: screenFiles.length,
-          categorized: screenFiles.length,
+          totalScanned: targetFiles.length,
+          categorized: targetFiles.length,
           moved: 0,
           skipped: 0,
           failed: 0,
@@ -370,7 +375,14 @@ export const App: React.FC = () => {
     // Temizlik bitti: Yeni oluşturulan kategori klasörlerini temizliğin yapıldığı aktif ekranda konumlandır
     if (createdFolderSet.size > 0 && window.cleanfyApi?.applyDesktopPositions) {
       const folderPositions: Record<string, { x: number; y: number }> = {};
-      const screenOffsetX = currentDisplay?.physicalBounds?.x ?? (currentDisplay?.bounds.x ?? 0);
+      let screenOffsetX = 0;
+      if (currentDisplay?.index === 2) {
+        screenOffsetX = 1920;
+      } else if (currentDisplay?.index === 3) {
+        screenOffsetX = 3840;
+      } else {
+        screenOffsetX = 0;
+      }
       const screenOffsetY = currentDisplay?.physicalBounds?.y ?? (currentDisplay?.bounds.y ?? 0);
       const scale = currentDisplay?.scaleFactor ?? 1;
 
@@ -386,13 +398,8 @@ export const App: React.FC = () => {
           localY = Math.round(firstZone.y + 30 + Math.floor(folderIdx / 3) * 100);
         }
 
-        const rawVirtualX = Math.round(screenOffsetX + localX * scale);
-        const rawVirtualY = Math.round(screenOffsetY + localY * scale);
-
-        const screenW = currentDisplay?.physicalBounds?.width ?? (currentDisplay?.bounds.width ?? 1920);
-        const screenH = currentDisplay?.physicalBounds?.height ?? (currentDisplay?.bounds.height ?? 1080);
-        const virtualX = Math.max(screenOffsetX + 30, Math.min(rawVirtualX, screenOffsetX + screenW - 80));
-        const virtualY = Math.max(screenOffsetY + 30, Math.min(rawVirtualY, screenOffsetY + screenH - 80));
+        const virtualX = Math.round(screenOffsetX + localX * scale);
+        const virtualY = Math.round(screenOffsetY + localY * scale);
 
         folderPositions[fullFolderPath] = { x: virtualX, y: virtualY };
         folderPositions[folderName] = { x: virtualX, y: virtualY };
@@ -472,7 +479,7 @@ export const App: React.FC = () => {
           if (wp) setWallpaperUrl(wp);
 
           // İstatistikleri seçilen ekranın dosya sayısına göre anında güncelle
-          const nextScreenFiles = files.filter(f => f.displayId === switched.id || f.displayIndex === switched.index);
+          const nextScreenFiles = files.filter(f => f.displayId === switched.id);
           setStats(prev => ({
             ...prev,
             totalScanned: nextScreenFiles.length,
@@ -526,17 +533,22 @@ export const App: React.FC = () => {
 
     // 1. Gerçek Windows masaüstündeki simgeleri doğrudan seçilen alan ve ekran koordinatlarına yerleştir
     const realDesktopPositions: Record<string, { x: number; y: number }> = {};
-    const screenOffsetX = currentDisplay?.physicalBounds?.x ?? (currentDisplay?.bounds.x ?? 0);
+    let screenOffsetX = 0;
+    if (currentDisplay?.index === 2) {
+      screenOffsetX = 1920;
+    } else if (currentDisplay?.index === 3) {
+      screenOffsetX = 3840;
+    } else {
+      screenOffsetX = 0;
+    }
     const screenOffsetY = currentDisplay?.physicalBounds?.y ?? (currentDisplay?.bounds.y ?? 0);
     const scale = currentDisplay?.scaleFactor ?? 1;
 
     activeDisplayFiles.forEach(f => {
       const t = targets[f.id];
       if (t) {
-        const rawVirtualX = Math.round(screenOffsetX + t.x * scale);
-        const rawVirtualY = Math.round(screenOffsetY + t.y * scale);
-        const virtualX = Math.max(screenOffsetX + 30, Math.min(rawVirtualX, screenOffsetX + screenW - 80));
-        const virtualY = Math.max(screenOffsetY + 30, Math.min(rawVirtualY, screenOffsetY + screenH - 80));
+        const virtualX = Math.round(screenOffsetX + t.x * scale);
+        const virtualY = Math.round(screenOffsetY + t.y * scale);
         realDesktopPositions[f.currentPath] = { x: virtualX, y: virtualY };
         realDesktopPositions[f.name] = { x: virtualX, y: virtualY };
       }
@@ -593,9 +605,147 @@ export const App: React.FC = () => {
   };
 
   const handleMouseLeaveControls = () => {
-    if (!hasAnyModalOpen) {
+    if (!hasAnyModalOpen && !isDraggingHudRef.current) {
       window.cleanfyApi?.setIgnoreMouse(true);
     }
+  };
+
+  // Menü Konumunu Sıfırla (Sağ Üst Köşe)
+  const handleResetHudPos = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setHudPos(null);
+    try {
+      localStorage.removeItem('cleanfy_hud_pos');
+    } catch {}
+  };
+
+  // Menüyü Açarken Ekran Sınırlarını Kontrol Et ve Gerekirse Taşan Kısmı İçeri Çek
+  const handleExpandHud = () => {
+    if (draggedJustNowRef.current) return;
+    if (hudPos) {
+      const maxExpandX = Math.max(10, window.innerWidth - 298);
+      const maxExpandY = Math.max(10, window.innerHeight - 480);
+      if (hudPos.x > maxExpandX || hudPos.y > maxExpandY) {
+        const adjusted = {
+          x: Math.min(hudPos.x, maxExpandX),
+          y: Math.min(hudPos.y, maxExpandY),
+        };
+        setHudPos(adjusted);
+        try {
+          localStorage.setItem('cleanfy_hud_pos', JSON.stringify(adjusted));
+        } catch {}
+      }
+    }
+    setIsHudCollapsed(false);
+  };
+
+  // Ekran Değiştiğinde Menünün Görünür Alanda Kalmasını Sağla
+  useEffect(() => {
+    if (hudPos) {
+      const maxX = Math.max(10, window.innerWidth - 298);
+      const maxY = Math.max(10, window.innerHeight - 80);
+      if (hudPos.x > maxX || hudPos.y > maxY) {
+        const adjusted = {
+          x: Math.min(hudPos.x, maxX),
+          y: Math.min(hudPos.y, maxY),
+        };
+        setHudPos(adjusted);
+        try {
+          localStorage.setItem('cleanfy_hud_pos', JSON.stringify(adjusted));
+        } catch {}
+      }
+    }
+  }, [currentDisplay]);
+
+  // Menüyü Ekranda Serbestçe Sürükleme Mantığı (Pointer Events ile Akıcı Taşıma)
+  const handleHudPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return; // Sadece sol tık
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input')) {
+      return;
+    }
+
+    const pointerId = e.pointerId;
+    try {
+      (e.target as HTMLElement).setPointerCapture(pointerId);
+    } catch {}
+
+    window.cleanfyApi?.setIgnoreMouse(false);
+    isDraggingHudRef.current = true;
+
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+
+    const container = hudContainerRef.current;
+    if (!container) return;
+
+    const activeEl = isHudCollapsed ? (hudTriggerRef.current || container) : container;
+    const rect = activeEl.getBoundingClientRect();
+    const startElemX = rect.left;
+    const startElemY = rect.top;
+
+    let hasDragged = false;
+
+    const onPointerMove = (moveEv: PointerEvent) => {
+      const dx = moveEv.clientX - startClientX;
+      const dy = moveEv.clientY - startClientY;
+
+      if (!hasDragged && Math.hypot(dx, dy) > 4) {
+        hasDragged = true;
+        setIsDraggingHud(true);
+      }
+
+      if (hasDragged) {
+        const hudWidth = isHudCollapsed ? (hudTriggerRef.current?.offsetWidth || 230) : 288;
+        const hudHeight = isHudCollapsed ? (hudTriggerRef.current?.offsetHeight || 40) : (hudPopoverRef.current?.offsetHeight || 440);
+
+        const minX = 10;
+        const maxX = Math.max(10, window.innerWidth - (isHudCollapsed ? hudWidth + 10 : 298));
+        const minY = 10;
+        const maxY = Math.max(10, window.innerHeight - (isHudCollapsed ? hudHeight + 10 : 470));
+
+        const newX = Math.round(Math.min(Math.max(minX, startElemX + dx), maxX));
+        const newY = Math.round(Math.min(Math.max(minY, startElemY + dy), maxY));
+
+        setHudPos({ x: newX, y: newY });
+      }
+    };
+
+    const onPointerUp = (upEv: PointerEvent) => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      try {
+        (e.target as HTMLElement).releasePointerCapture(pointerId);
+      } catch {}
+
+      isDraggingHudRef.current = false;
+      setIsDraggingHud(false);
+
+      if (hasDragged) {
+        draggedJustNowRef.current = true;
+        setTimeout(() => {
+          draggedJustNowRef.current = false;
+        }, 120);
+
+        setHudPos(current => {
+          if (current) {
+            try {
+              localStorage.setItem('cleanfy_hud_pos', JSON.stringify(current));
+            } catch {}
+          }
+          return current;
+        });
+      }
+
+      const elem = document.elementFromPoint(upEv.clientX, upEv.clientY);
+      const isOver = elem && container.contains(elem);
+      if (!isOver && !hasAnyModalOpen) {
+        window.cleanfyApi?.setIgnoreMouse(true);
+      }
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
   };
 
   return (
@@ -616,20 +766,36 @@ export const App: React.FC = () => {
         />
       </div>
 
-      {/* 2. SAĞ ÜST MİNİMALİST & GİZLENEBİLİR GLASSMORPHISM ROBOT MENÜSÜ */}
-      <div className="pointer-events-none absolute top-3.5 right-3.5 z-40">
-        {/* Kapalı Durum: Sağ Üst Küçük Glassmorphism Rozet Butonu */}
+      {/* 2. TAŞINABİLİR GLASSMORPHISM ROBOT MENÜSÜ */}
+      <div
+        ref={hudContainerRef}
+        style={hudPos ? { left: `${hudPos.x}px`, top: `${hudPos.y}px` } : { top: '14px', right: '14px' }}
+        className={`pointer-events-none absolute z-40 select-none ${
+          isDraggingHud ? 'opacity-95' : ''
+        }`}
+      >
+        {/* Kapalı Durum: Küçük Glassmorphism Rozet Butonu */}
         <div
+          ref={hudTriggerRef}
           key="hud-trigger"
           onMouseEnter={handleMouseEnterControls}
           onMouseLeave={handleMouseLeaveControls}
-          onClick={() => setIsHudCollapsed(false)}
-          className={`absolute top-0 right-0 flex items-center gap-2 px-3 py-1.5 glass-badge rounded-full cursor-pointer text-white group menu-trigger ${
+          onPointerDown={handleHudPointerDown}
+          onClick={handleExpandHud}
+          style={{ transformOrigin: hudPos ? 'top left' : 'top right' }}
+          className={`absolute top-0 ${hudPos ? 'left-0' : 'right-0'} flex items-center gap-1.5 px-2.5 py-1.5 glass-badge rounded-full cursor-grab active:cursor-grabbing text-white group menu-trigger ${
             isHudCollapsed ? 'menu-trigger-open hover:scale-105' : 'menu-trigger-closed'
           }`}
-          title="Robot Süpürge Menüsünü Aç"
+          title="Sürükleyerek konumu değiştirin. Menüyü açmak için tıklayın."
         >
-          <div className="relative w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-500/85 to-blue-600/85 border border-white/30 flex items-center justify-center shadow-sm shadow-cyan-500/40 group-hover:rotate-12 transition-transform">
+          <div
+            className="text-slate-400/80 group-hover:text-cyan-300 transition-colors p-0.5 cursor-grab active:cursor-grabbing shrink-0"
+            onDoubleClick={handleResetHudPos}
+            title="Sürükleyin (Varsayılan sağ üst konuma dönmek için çift tıklayın)"
+          >
+            <GripVertical className="w-3.5 h-3.5" />
+          </div>
+          <div className="relative w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-500/85 to-blue-600/85 border border-white/30 flex items-center justify-center shadow-sm shadow-cyan-500/40 group-hover:rotate-12 transition-transform shrink-0">
             <Bot className="w-3.5 h-3.5 text-white animate-spin-slow" />
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-cyan-400 border border-slate-900" />
           </div>
@@ -646,38 +812,65 @@ export const App: React.FC = () => {
           <ChevronDown className="w-3.5 h-3.5 text-slate-300 group-hover:translate-y-0.5 transition-transform shrink-0" />
         </div>
 
-        {/* Açık Durum: Sağ Üst Kompakt Glassmorphism Kontrol Menüsü */}
+        {/* Açık Durum: Kompakt Glassmorphism Kontrol Menüsü */}
         <div
+          ref={hudPopoverRef}
           key="hud-popover"
           onMouseEnter={handleMouseEnterControls}
           onMouseLeave={handleMouseLeaveControls}
+          style={{ transformOrigin: hudPos ? 'top left' : 'top right' }}
           className={`w-72 p-3 glass-dock rounded-2xl flex flex-col gap-2.5 text-slate-100 menu-popover ${
             isHudCollapsed ? 'menu-popover-closed' : 'menu-popover-open'
           }`}
         >
-          {/* Üst Başlık & Gizle / Kapat Düğmeleri */}
-          <div className="flex items-center justify-between border-b border-white/10 pb-2">
-            <div
-              onClick={() => setIsHudCollapsed(true)}
-              className="flex items-center gap-2 cursor-pointer group"
-              title="Menüyü Gizle"
-            >
-              <div className="relative w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-500/80 to-blue-600/80 border border-white/30 flex items-center justify-center shadow-sm shadow-cyan-500/30">
-                <Bot className="w-3.5 h-3.5 text-white animate-pulse" />
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-cyan-400 border border-slate-900 animate-ping" />
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-cyan-400 border border-slate-900" />
+          {/* Üst Başlık & Sürükleme Tutamacı & Gizle / Kapat Düğmeleri */}
+          <div
+            onPointerDown={handleHudPointerDown}
+            className="flex items-center justify-between border-b border-white/10 pb-2 cursor-grab active:cursor-grabbing select-none"
+            title="Başlıktan tutarak menüyü sürükleyebilirsiniz"
+          >
+            <div className="flex items-center gap-1.5">
+              <div
+                className="text-slate-400/80 hover:text-cyan-300 transition-colors p-0.5 cursor-grab active:cursor-grabbing shrink-0"
+                onDoubleClick={handleResetHudPos}
+                title="Sürükleyin (Varsayılan sağ üst konuma dönmek için çift tıklayın)"
+              >
+                <GripVertical className="w-3.5 h-3.5" />
               </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-white text-[11px] leading-tight group-hover:text-cyan-200 transition-colors">
-                  Cleanfy Robot
-                </span>
-                <span className="text-[9px] text-cyan-300/90 font-medium leading-tight">
-                  Durum: {robotState}
-                </span>
+              <div
+                onClick={() => {
+                  if (!draggedJustNowRef.current) setIsHudCollapsed(true);
+                }}
+                className="flex items-center gap-2 cursor-pointer group"
+                title="Menüyü Gizle"
+              >
+                <div className="relative w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-500/80 to-blue-600/80 border border-white/30 flex items-center justify-center shadow-sm shadow-cyan-500/30 shrink-0">
+                  <Bot className="w-3.5 h-3.5 text-white animate-pulse" />
+                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-cyan-400 border border-slate-900 animate-ping" />
+                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-cyan-400 border border-slate-900" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-white text-[11px] leading-tight group-hover:text-cyan-200 transition-colors">
+                    Cleanfy Robot
+                  </span>
+                  <span className="text-[9px] text-cyan-300/90 font-medium leading-tight">
+                    Durum: {robotState}
+                  </span>
+                </div>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
+              {hudPos && (
+                <button
+                  onClick={handleResetHudPos}
+                  className="p-1 rounded-lg glass-icon-btn text-slate-400 hover:text-cyan-300 text-[10px]"
+                  title="Varsayılan Konuma Sıfırla (Sağ Üst)"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              )}
+
               <button
                 onClick={() => setIsHudCollapsed(true)}
                 className="p-1 rounded-lg glass-icon-btn text-slate-300 hover:text-white"
@@ -696,7 +889,7 @@ export const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Monitör / Ekran Seçimi ve Masaüstü Yolu */}
+          {/* Monitör / Ekran Seçimi ve Aktif Dosya Sayısı */}
           <div className="flex items-center justify-between gap-1.5 text-[10px]">
             <button
               onClick={() => setIsScreenModalOpen(true)}
@@ -717,22 +910,13 @@ export const App: React.FC = () => {
               )}
             </button>
 
-            <div className="flex items-center gap-1 px-2 py-1 rounded-lg glass-pill text-slate-300 font-mono truncate flex-1" title={desktopPath}>
-              <Folder className="w-3 h-3 text-cyan-400 shrink-0" />
-              <span className="truncate">{desktopPath || 'Masaüstü...'}</span>
-            </div>
             <div
-              className="px-2 py-1 rounded-lg glass-pill font-mono text-slate-200 shrink-0"
-              title={`Ekran ${currentDisplay?.index || 1} üzerindeki dosyalar: ${activeDisplayFiles.length} (Toplam: ${files.length})`}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg glass-pill font-mono text-cyan-200 text-[10px] select-none cursor-default shrink-0"
+              title={`Bu ekrandaki dosya sayısı: ${activeDisplayFiles.length}`}
             >
-              📄 <strong>{activeDisplayFiles.length}</strong>
-              {files.length !== activeDisplayFiles.length && (
-                <span className="text-[9px] text-cyan-300 font-normal ml-1">/ {files.length}</span>
-              )}
+              <FileText className="w-3 h-3 text-cyan-400 shrink-0" />
+              <span><strong>{activeDisplayFiles.length}</strong> Dosya</span>
             </div>
-            <span className="px-2 py-1 rounded-lg glass-pill font-mono text-emerald-300 !border-emerald-500/30 !bg-emerald-500/10 shrink-0">
-              ✓ <strong>{stats.moved}</strong>
-            </span>
           </div>
 
           {/* İlerleme Çubuğu (Temizlik Sırasında) */}
