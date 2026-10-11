@@ -12,6 +12,7 @@ import { Sparkles, X, Crosshair, RotateCcw, CheckCircle2, Plus, Check, Monitor }
 interface ZoneSelectorOverlayProps {
   isOpen: boolean;
   files: FileItem[];
+  allFiles?: FileItem[];
   activeZones: CustomZone[];
   currentDisplay?: DisplayInfo | null;
   onClose: () => void;
@@ -21,6 +22,7 @@ interface ZoneSelectorOverlayProps {
 export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
   isOpen,
   files,
+  allFiles,
   activeZones,
   currentDisplay,
   onClose,
@@ -131,7 +133,16 @@ export const ZoneSelectorOverlay: React.FC<ZoneSelectorOverlayProps> = ({
     });
   };
 
-  const { matched, label } = matchFilesByCustomRequest(files, promptText);
+  // Önce aktif ekrandaki dosyaları filtrele; eğer aktif ekranda eşleşme 0 ise ama masaüstünde eşleşen dosyalar varsa tüm dosyaları kullan
+  const targetFiles = files && files.length > 0 ? files : (allFiles || []);
+  let { matched, label } = matchFilesByCustomRequest(targetFiles, promptText);
+  if (matched.length === 0 && allFiles && allFiles.length > 0) {
+    const fallbackRes = matchFilesByCustomRequest(allFiles, promptText);
+    if (fallbackRes.matched.length > 0) {
+      matched = fallbackRes.matched;
+      label = fallbackRes.label;
+    }
+  }
 
   // Yeni alanı ekle ve listeye dahil et (Ekrandan silinmez, bir sonraki alanı seçmeye hazır kalır)
   const handleAddZone = (e?: React.FormEvent) => {

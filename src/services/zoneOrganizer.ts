@@ -211,7 +211,9 @@ function cleanExtension(ext: string): string {
 export const SOFTWARE_EXCEPTIONS = [
   'visual studio', 'vscode', 'intellij', 'pycharm', 'webstorm', 'sublime', 'notepad',
   'photoshop', 'illustrator', 'premiere', 'blender', 'aseprite', 'wallpaper engine',
-  'obs studio', 'discord', 'telegram', 'spotify', 'chrome', 'firefox', 'edge', 'brave', 'opera'
+  'obs studio', 'discord', 'telegram', 'spotify', 'chrome', 'firefox', 'edge', 'brave', 'opera',
+  'rustdesk', 'roblox studio', 'autoclicker', 'termius', 'vmware', 'anaconda', 'blockbench',
+  'dlss', 'streamfog', 'dia', 'soundfy', 'snap camera', 'steelseries', 'ndi'
 ];
 
 export function isGameItem(file: FileItem): boolean {
@@ -220,34 +222,27 @@ export function isGameItem(file: FileItem): boolean {
   const cleanExt = rawExt.replace(/^\./, '');
   const categoryLower = (file.category || '').toLowerCase();
 
-  // Bilinen genel yazılım ve geliştirici araçlarını oyundan hariç tut
+  // Bilinen genel yazılım ve geliştirici araçlarını oyundan kesinlikle hariç tut
   if (SOFTWARE_EXCEPTIONS.some(sw => nameLower.includes(sw))) {
     return false;
   }
 
-  // 1. Klasörler: Eğer klasör adı oyun anahtar kelimesi içeriyorsa (ör. 'BlokOyun', 'BoatRace', vb.)
+  // Klasörler oyun kısayolu değildir, alana dizilmemelidir
   if (file.isFolder) {
-    if (nameLower.includes('oyun') || nameLower.includes('game') || GAME_KEYWORDS.some(kw => nameLower.includes(kw))) {
-      // Hedef kategori klasörlerini (örn. 'Oyunlar ve Oyun Kısayolları') hariç tut
-      if (nameLower === 'oyunlar ve oyun kısayolları' || nameLower === 'oyunlar' || nameLower === 'games') {
-        return false;
-      }
-      return true;
-    }
     return false;
   }
 
-  // 2. Kategorisi doğrudan Oyun olanlar
+  // 1. Kategorisi doğrudan Oyun olanlar (örn. 'Oyunlar ve Oyun Kısayolları')
   if (categoryLower.includes('oyun') || categoryLower.includes('game')) {
     return true;
   }
 
-  // 3. Oyun ve mod dosya formatları (.mrpack, .mcworld, .schem vb.)
+  // 2. Oyun ve mod dosya formatları (.mrpack, .mcworld, .schem vb.)
   if (GAME_EXTENSIONS.has(cleanExt) || GAME_EXTENSIONS.has(rawExt)) {
     return true;
   }
 
-  // 4. Windows Masaüstü İnternet Kısayolları (.url)
+  // 3. Windows Masaüstü İnternet Kısayolları (.url)
   // Steam, Epic veya diğer platformlardan masaüstüne eklenen oyunlar (.url olarak kaydedilir)
   if (cleanExt === 'url') {
     const nonGameSites = ['google', 'youtube', 'facebook', 'twitter', 'instagram', 'linkedin', 'github', 'e-devlet', 'edevlet'];
@@ -256,14 +251,14 @@ export function isGameItem(file: FileItem): boolean {
     }
   }
 
-  // 5. Masaüstü Kısayolları ve Çalıştırılabilir Dosyalar (.lnk veya .exe veya uzantısız)
+  // 4. Masaüstü Kısayolları ve Çalıştırılabilir Dosyalar (.lnk veya .exe veya uzantısız)
   if (cleanExt === 'lnk' || cleanExt === 'exe' || cleanExt === '') {
     if (GAME_KEYWORDS.some(kw => nameLower.includes(kw))) {
       return true;
     }
   }
 
-  // 6. Dosya adında bilinen oyun anahtar kelimeleri geçen diğer tüm dosyalar
+  // 5. Dosya adında bilinen oyun anahtar kelimeleri geçen diğer tüm dosyalar
   if (GAME_KEYWORDS.some(kw => nameLower.includes(kw))) {
     return true;
   }

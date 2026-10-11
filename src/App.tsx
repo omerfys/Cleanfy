@@ -54,7 +54,12 @@ export const App: React.FC = () => {
   // Aktif Monitördeki Dosyalar: Farklı bir ekrana geçince SADECE o ekranın üzerindeki dosyaları simüle et
   const activeDisplayFiles = useMemo(() => {
     if (screenFilterMode === 'all_screens' || !currentDisplay) return files;
-    return files.filter(f => f.displayId === currentDisplay.id);
+    const filtered = files.filter(f => (
+      f.displayId === currentDisplay.id || 
+      String(f.displayId) === String(currentDisplay.id) ||
+      (f.displayIndex != null && currentDisplay.index != null && f.displayIndex === currentDisplay.index)
+    ));
+    return filtered.length > 0 ? filtered : files;
   }, [files, currentDisplay, screenFilterMode]);
 
   // İşlem Durumları
@@ -1043,6 +1048,7 @@ export const App: React.FC = () => {
         <ZoneSelectorOverlay
           isOpen={isZoneSelectorOpen}
           files={activeDisplayFiles}
+          allFiles={files}
           activeZones={activeZones}
           currentDisplay={currentDisplay}
           onClose={() => setIsZoneSelectorOpen(false)}
