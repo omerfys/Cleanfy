@@ -39,6 +39,7 @@ export interface FileItem {
   virtualX?: number | null;
   virtualY?: number | null;
   displayId?: number | null;
+  displayIndex?: number | null;
   screenDevice?: string | null;
   // Fizik simülasyonu için geçici koordinatlar
   x?: number;
@@ -90,8 +91,15 @@ export interface DisplayInfo {
   id: number;
   index: number;
   name: string;
+  deviceName?: string;
   positionHint?: string;
   bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  physicalBounds?: {
     x: number;
     y: number;
     width: number;

@@ -167,7 +167,7 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
                       )}
                     </div>
                     <span className="text-[11px] font-mono text-slate-300 mt-0.5">
-                      Çözünürlük: {disp.bounds.width} × {disp.bounds.height} px
+                      {disp.name}
                       {disp.scaleFactor && disp.scaleFactor !== 1 ? ` (%${Math.round(disp.scaleFactor * 100)} ölçek)` : ''}
                     </span>
                   </div>

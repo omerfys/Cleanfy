@@ -456,14 +456,15 @@ export const App: React.FC = () => {
 
     // 1. Gerçek Windows masaüstündeki simgeleri doğrudan seçilen alan ve ekran koordinatlarına yerleştir
     const realDesktopPositions: Record<string, { x: number; y: number }> = {};
-    const screenOffsetX = currentDisplay?.bounds.x ?? 0;
-    const screenOffsetY = currentDisplay?.bounds.y ?? 0;
+    const screenOffsetX = currentDisplay?.physicalBounds?.x ?? (currentDisplay?.bounds.x ?? 0);
+    const screenOffsetY = currentDisplay?.physicalBounds?.y ?? (currentDisplay?.bounds.y ?? 0);
+    const scale = currentDisplay?.scaleFactor ?? 1;
 
     activeDisplayFiles.forEach(f => {
       const t = targets[f.id];
       if (t) {
-        const virtualX = Math.round(t.x + screenOffsetX);
-        const virtualY = Math.round(t.y + screenOffsetY);
+        const virtualX = Math.round(t.x * scale + screenOffsetX);
+        const virtualY = Math.round(t.y * scale + screenOffsetY);
         realDesktopPositions[f.currentPath] = { x: virtualX, y: virtualY };
         realDesktopPositions[f.name] = { x: virtualX, y: virtualY };
       }

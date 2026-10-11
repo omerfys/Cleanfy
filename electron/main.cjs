@@ -32,26 +32,84 @@ if (!gotTheLock) {
   });
 }
 
+let cachedWinScreens = null;
+let lastWinScreensTime = 0;
+
+function getWindowsScreens() {
+  const now = Date.now();
+  if (cachedWinScreens && (now - lastWinScreensTime < 5000)) {
+    return cachedWinScreens;
+  }
+  try {
+    const psCmd = `powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens | ForEach-Object { Write-Output ($_.DeviceName + '|' + $_.Bounds.X + '|' + $_.Bounds.Y + '|' + $_.Bounds.Width + '|' + $_.Bounds.Height + '|' + $_.Primary) }"`;
+    const out = execSync(psCmd, { encoding: 'utf-8', timeout: 3000 }).trim();
+    if (out) {
+      cachedWinScreens = out.split(/\r?\n/).map((line, idx) => {
+        const parts = line.trim().split('|');
+        return {
+          windowsIndex: idx + 1,
+          deviceName: parts[0],
+          x: parseInt(parts[1], 10),
+          y: parseInt(parts[2], 10),
+          width: parseInt(parts[3], 10),
+          height: parseInt(parts[4], 10),
+          isPrimary: parts[5]?.toLowerCase() === 'true',
+        };
+      });
+      lastWinScreensTime = now;
+      return cachedWinScreens;
+    }
+  } catch (e) {}
+  return [];
+}
+
 function getDisplaysList() {
   const primaryId = screen.getPrimaryDisplay().id;
   const allDisplays = screen.getAllDisplays();
+  const winScreens = getWindowsScreens();
 
-  // Ekranları soldan sağa x koordinatına göre sırala
-  const sorted = [...allDisplays].sort((a, b) => a.bounds.x - b.bounds.x || a.bounds.y - b.bounds.y);
-
-  return sorted.map((d, index) => {
+  const mapped = allDisplays.map((d, index) => {
     const isPrimary = d.id === primaryId;
+
+    // Windows resmi ekran bilgisiyle donanımsal eşleme
+    let winMatch = null;
+    if (winScreens.length > 0) {
+      if (isPrimary) {
+        winMatch = winScreens.find(ws => ws.isPrimary);
+      }
+      if (!winMatch) {
+        winMatch = winScreens[index];
+      }
+    }
+
+    const winIndex = winMatch ? winMatch.windowsIndex : (index + 1);
+    const winDeviceName = winMatch ? winMatch.deviceName : `\\\\.\\DISPLAY${index + 1}`;
+
     let positionHint = 'Orta';
     if (d.bounds.x < 0) positionHint = 'Sol';
     else if (d.bounds.x > 0) positionHint = 'Sağ';
 
-    const label = `Ekran ${index + 1} (${d.bounds.width}x${d.bounds.height})${isPrimary ? ' • Ana Ekran' : ''}`;
+    const monitorLabel = d.label ? ` • ${d.label}` : '';
+    const label = `Ekran ${winIndex} (${d.bounds.width}x${d.bounds.height}${monitorLabel})${isPrimary ? ' • Ana Ekran' : ''}`;
+
     return {
       id: d.id,
-      index: index + 1,
+      index: winIndex,
       name: label,
+      deviceName: winDeviceName,
       positionHint,
       bounds: {
+        x: d.bounds.x,
+        y: d.bounds.y,
+        width: d.bounds.width,
+        height: d.bounds.height,
+      },
+      physicalBounds: winMatch ? {
+        x: winMatch.x,
+        y: winMatch.y,
+        width: winMatch.width,
+        height: winMatch.height,
+      } : {
         x: d.bounds.x,
         y: d.bounds.y,
         width: d.bounds.width,
@@ -67,6 +125,9 @@ function getDisplaysList() {
       isPrimary,
     };
   });
+
+  // Windows ekran numaralarına göre sırala (Ekran 1, Ekran 2, Ekran 3)
+  return mapped.sort((a, b) => a.index - b.index);
 }
 
 function createMainWindow() {
@@ -134,36 +195,61 @@ ipcMain.handle('desktop:getPath', async () => {
 
 ipcMain.handle('desktop:scan', async (_, customPath) => {
   const result = await scanDesktop(customPath);
-  const allDisplays = screen.getAllDisplays();
-  const primaryId = screen.getPrimaryDisplay().id;
+  const displaysList = getDisplaysList();
+  const primaryDisplay = displaysList.find(d => d.isPrimary) || displaysList[0];
 
-  // Her dosyayı fiziksel olarak bulunduğu monitöre eşle
+  // Her dosyayı fiziksel olarak bulunduğu monitöre donanımsal screenDevice ile eşle
   if (result && Array.isArray(result.files)) {
     result.files = result.files.map(file => {
-      let matchedDisplayId = primaryId;
+      let matchedDisplay = null;
+
+      // 1. Kesin Eşleme: Win32 donanımsal screenDevice (\\.\DISPLAY1, \\.\DISPLAY5, \\.\DISPLAY6)
+      if (file.screenDevice) {
+        matchedDisplay = displaysList.find(
+          d => d.deviceName && d.deviceName.toLowerCase() === file.screenDevice.toLowerCase()
+        );
+      }
+
+      // 2. Fallback: Sanal masaüstü koordinatları ile eşleme
+      if (!matchedDisplay && typeof file.virtualX === 'number' && typeof file.virtualY === 'number') {
+        matchedDisplay = displaysList.find(d => {
+          const minX = Math.min(d.bounds.x, d.physicalBounds ? d.physicalBounds.x : d.bounds.x);
+          const maxX = Math.max(d.bounds.x + d.bounds.width, d.physicalBounds ? d.physicalBounds.x + d.physicalBounds.width : d.bounds.x + d.bounds.width);
+          const minY = Math.min(d.bounds.y, d.physicalBounds ? d.physicalBounds.y : d.bounds.y);
+          const maxY = Math.max(d.bounds.y + d.bounds.height, d.physicalBounds ? d.physicalBounds.y + d.physicalBounds.height : d.bounds.y + d.bounds.height);
+          return file.virtualX >= minX && file.virtualX < maxX && file.virtualY >= minY && file.virtualY < maxY;
+        });
+      }
+
+      // 3. Fallback: Birincil (ana) ekran
+      if (!matchedDisplay) {
+        matchedDisplay = primaryDisplay;
+      }
+
       let localX = file.screenX;
       let localY = file.screenY;
 
-      if (typeof file.virtualX === 'number' && typeof file.virtualY === 'number') {
-        const d = allDisplays.find(disp => {
-          return (
-            file.virtualX >= disp.bounds.x &&
-            file.virtualX < disp.bounds.x + disp.bounds.width &&
-            file.virtualY >= disp.bounds.y &&
-            file.virtualY < disp.bounds.y + disp.bounds.height
-          );
-        });
-
-        if (d) {
-          matchedDisplayId = d.id;
-          localX = file.virtualX - d.bounds.x;
-          localY = file.virtualY - d.bounds.y;
+      // Eğer screenX hesaplanmamışsa monitöre göre göreceli yerleşim yap
+      if (typeof localX !== 'number' || isNaN(localX)) {
+        if (typeof file.virtualX === 'number') {
+          localX = file.virtualX - matchedDisplay.bounds.x;
+        } else {
+          localX = 100;
+        }
+      }
+      if (typeof localY !== 'number' || isNaN(localY)) {
+        if (typeof file.virtualY === 'number') {
+          localY = file.virtualY - matchedDisplay.bounds.y;
+        } else {
+          localY = 100;
         }
       }
 
       return {
         ...file,
-        displayId: matchedDisplayId,
+        displayId: matchedDisplay.id,
+        displayIndex: matchedDisplay.index,
+        screenDevice: matchedDisplay.deviceName || file.screenDevice,
         screenX: localX,
         screenY: localY,
       };
