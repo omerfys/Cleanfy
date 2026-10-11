@@ -6,7 +6,7 @@ interface ScreenSelectorModalProps {
   isOpen: boolean;
   displays: DisplayInfo[];
   currentDisplay: DisplayInfo | null;
-  files?: Array<{ displayId?: number | null }>;
+  files?: Array<{ displayId?: number | null; displayIndex?: number | null }>;
   onSelectDisplay: (displayId: number) => void;
   onClose: () => void;
 }
@@ -79,7 +79,7 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
             <div className="relative w-full h-full flex items-center justify-center">
               {displays.map((disp) => {
                 const isSelected = currentDisplay?.id === disp.id;
-                const fileCount = files.filter(f => f.displayId === disp.id).length;
+                const fileCount = files.filter(f => f.displayId === disp.id || f.displayIndex === disp.index).length;
                 
                 // Fiziksel sol-orta-sağ yerleşim (Ekran 1: Sol, Ekran 2: Orta, Ekran 3: Sağ)
                 const count = Math.max(displays.length, 1);
@@ -128,7 +128,7 @@ export const ScreenSelectorModal: React.FC<ScreenSelectorModalProps> = ({
         <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
           {displays.map((disp) => {
             const isSelected = currentDisplay?.id === disp.id;
-            const fileCount = files.filter(f => f.displayId === disp.id).length;
+            const fileCount = files.filter(f => f.displayId === disp.id || f.displayIndex === disp.index).length;
             return (
               <div
                 key={disp.id}

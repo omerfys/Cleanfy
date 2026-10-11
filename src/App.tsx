@@ -98,6 +98,17 @@ export const App: React.FC = () => {
     estimatedSecondsRemaining: 0,
   });
 
+  // Ekran değiştiğinde veya dosyalar güncellendiğinde aktif ekranın dosya sayılarını anında güncelle
+  useEffect(() => {
+    if (!isCleaning) {
+      setStats(prev => ({
+        ...prev,
+        totalScanned: activeDisplayFiles.length,
+        categorized: activeDisplayFiles.length,
+      }));
+    }
+  }, [activeDisplayFiles, isCleaning]);
+
   // Modal açıkken fare tıklamalarını yakala, kapalıyken masaüstüne geçir
   useEffect(() => {
     if (window.cleanfyApi) {
@@ -114,14 +125,6 @@ export const App: React.FC = () => {
     async function initDesktop() {
       if (window.cleanfyApi) {
         try {
-          const path = await window.cleanfyApi.getDesktopPath();
-          setDesktopPath(path);
-          handleScan(path);
-        } catch (err) {
-          console.error('Masaüstü yolu alınamadı:', err);
-        }
-
-        try {
           const dispList = await window.cleanfyApi.getDisplays();
           if (dispList && dispList.length > 0) {
             setDisplays(dispList);
@@ -130,6 +133,14 @@ export const App: React.FC = () => {
           }
         } catch (err) {
           console.error('Ekran listesi alınamadı:', err);
+        }
+
+        try {
+          const path = await window.cleanfyApi.getDesktopPath();
+          setDesktopPath(path);
+          handleScan(path);
+        } catch (err) {
+          console.error('Masaüstü yolu alınamadı:', err);
         }
 
         try {
@@ -461,7 +472,7 @@ export const App: React.FC = () => {
           if (wp) setWallpaperUrl(wp);
 
           // İstatistikleri seçilen ekranın dosya sayısına göre anında güncelle
-          const nextScreenFiles = files.filter(f => f.displayId === switched.id);
+          const nextScreenFiles = files.filter(f => f.displayId === switched.id || f.displayIndex === switched.index);
           setStats(prev => ({
             ...prev,
             totalScanned: nextScreenFiles.length,
