@@ -183,40 +183,69 @@ ipcMain.handle('desktop:scan', async (_, customPath) => {
   const displaysList = getDisplaysList();
   const screen1 = displaysList.find(d => d.index === 1);
   const screen2 = displaysList.find(d => d.index === 2) || displaysList[0]; // Orta Monitör (x=0)
+  const screen3 = displaysList.find(d => d.index === 3);
 
-  // Kullanıcının masaüstü çalışma simgelerini doğrudan Ekran 2 (Orta Monitör) üzerinde simüle et
+  // Dosyaları Windows çoklu monitör yapısına ve fiziksel yerleşime göre Ekran 1, Ekran 2, Ekran 3'e eşle
   if (result && Array.isArray(result.files)) {
     result.files = result.files.map(file => {
       let matchedDisplay = screen2;
 
-      // Sol ekrandaki (Laptop / DISPLAY1 / x < 0) simgeler Ekran 1'e
-      if (file.screenDevice && file.screenDevice.toLowerCase().includes('display1')) {
-        matchedDisplay = screen1 || screen2;
-      } else if (typeof file.virtualX === 'number' && file.virtualX < 0) {
-        matchedDisplay = screen1 || screen2;
-      } else {
-        // Kullanıcının çalışma masaüstü simgeleri doğrudan Ekran 2 (Orta Monitör) üzerinde simüle edilir
+      const dev = (file.screenDevice || '').toLowerCase();
+      const vx = typeof file.virtualX === 'number' ? file.virtualX : null;
+
+      // 1. Ekran 3 (Sağ Monitör - x > 3840 veya en sağdaki test/çalışma dosyaları)
+      if (screen3 && vx !== null && vx > 3840) {
+        matchedDisplay = screen3;
+      }
+      // 2. Ekran 1 (Sol Monitör - DISPLAY1, x < 0 veya orta kümenin solundaki koordinatlar: x < 1920)
+      else if (screen1 && (dev.includes('display1') || (vx !== null && (vx < 0 || vx < 1920)))) {
+        matchedDisplay = screen1;
+      }
+      // 3. Ekran 2 (Orta Monitör - Kullanıcının ana çalışma masaüstü kümesi: 1920 <= x <= 3840)
+      else {
         matchedDisplay = screen2;
       }
 
       let localX = file.screenX;
       let localY = file.screenY;
 
-      // Eğer screenX hesaplanmamışsa monitöre göre göreceli yerleşim yap
-      if (typeof localX !== 'number' || isNaN(localX)) {
-        if (typeof file.virtualX === 'number') {
-          localX = file.virtualX < 0 ? file.virtualX - matchedDisplay.bounds.x : file.virtualX % matchedDisplay.bounds.width;
-        } else {
-          localX = 100;
+      // Monitörün yerel (0..width, 0..height) koordinatlarına göre normalize et
+      if (matchedDisplay.index === 3) {
+        if (vx !== null) {
+          localX = (vx - 3840) % matchedDisplay.bounds.width;
         }
-      }
-      if (typeof localY !== 'number' || isNaN(localY)) {
         if (typeof file.virtualY === 'number') {
-          localY = file.virtualY - matchedDisplay.bounds.y;
-        } else {
-          localY = 100;
+          localY = file.virtualY % matchedDisplay.bounds.height;
+        }
+      } else if (matchedDisplay.index === 1) {
+        if (vx !== null) {
+          if (vx < 0) {
+            localX = vx - matchedDisplay.bounds.x;
+          } else {
+            localX = vx % matchedDisplay.bounds.width;
+          }
+        }
+        if (typeof file.virtualY === 'number') {
+          localY = file.virtualY % matchedDisplay.bounds.height;
+        }
+      } else {
+        // Ekran 2 (Orta)
+        if (vx !== null && vx >= 1920 && vx <= 3840) {
+          localX = vx - 1920;
+        } else if (vx !== null) {
+          localX = vx % matchedDisplay.bounds.width;
+        }
+        if (typeof file.virtualY === 'number') {
+          localY = file.virtualY;
         }
       }
+
+      // Güvenlik sınırları: simgelerin ekran kenarına taşmasını önle
+      if (typeof localX !== 'number' || isNaN(localX)) localX = 100;
+      if (typeof localY !== 'number' || isNaN(localY)) localY = 100;
+
+      localX = Math.max(30, Math.min(localX, matchedDisplay.bounds.width - 100));
+      localY = Math.max(28, Math.min(localY, matchedDisplay.bounds.height - 100));
 
       return {
         ...file,

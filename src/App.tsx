@@ -411,9 +411,19 @@ export const App: React.FC = () => {
           const wp = await window.cleanfyApi.getWallpaper?.();
           if (wp) setWallpaperUrl(wp);
 
+          // İstatistikleri seçilen ekranın dosya sayısına göre anında güncelle
+          const nextScreenFiles = files.filter(f => f.displayId === switched.id);
+          setStats(prev => ({
+            ...prev,
+            totalScanned: nextScreenFiles.length,
+            categorized: nextScreenFiles.length,
+            moved: 0,
+            skipped: 0,
+            failed: 0,
+          }));
+
           // Eğer seçili alanlar varsa yeni ekranın boyutlarına ve dosyalarına göre uyarla
           if (activeZones.length > 0) {
-            const nextScreenFiles = files.filter(f => f.displayId === switched.id);
             const { targets, zonesWithCounts } = computeMultiZoneArrangement(
               nextScreenFiles,
               activeZones,
@@ -463,7 +473,14 @@ export const App: React.FC = () => {
     activeDisplayFiles.forEach(f => {
       const t = targets[f.id];
       if (t) {
-        const origOffset = (typeof f.virtualX === 'number' && f.virtualX >= 1920) ? 1920 : screenOffsetX;
+        let origOffset = screenOffsetX;
+        if (currentDisplay?.index === 2) {
+          origOffset = 1920;
+        } else if (currentDisplay?.index === 3) {
+          origOffset = 3840;
+        } else if (currentDisplay?.index === 1) {
+          origOffset = (typeof f.virtualX === 'number' && f.virtualX >= 0) ? 0 : screenOffsetX;
+        }
         const virtualX = Math.round(t.x * scale + origOffset);
         const virtualY = Math.round(t.y * scale + screenOffsetY);
         realDesktopPositions[f.currentPath] = { x: virtualX, y: virtualY };
