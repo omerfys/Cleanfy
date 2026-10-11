@@ -746,7 +746,19 @@ if ($OutFile) {
           status: 'Taranmış',
         });
       } else {
-        const categorization = categorizeFile(path.basename(fullPath) || itemName);
+        let categorization = categorizeFile(path.basename(fullPath) || itemName);
+        if (ext === 'url' && fs.existsSync(fullPath)) {
+          try {
+            const content = fs.readFileSync(fullPath, 'utf-8');
+            if (/steam:\/\/|com\.epicgames\.launcher:\/\/|riotgames:\/\/|battlenet:\/\//i.test(content)) {
+              categorization = {
+                category: CATEGORIES.GAMES,
+                targetRelativePath: CATEGORIES.GAMES,
+                confidence: 0.99,
+              };
+            }
+          } catch (e) {}
+        }
         const targetPath = path.join(desktopPath, categorization.targetRelativePath, path.basename(fullPath) || itemName);
 
         files.push({
@@ -835,7 +847,20 @@ async function scanDesktop(customPath) {
 
       try {
         const stats = fs.statSync(fullPath);
-        const categorization = categorizeFile(entry.name);
+        let categorization = categorizeFile(entry.name);
+        const ext = path.extname(entry.name).toLowerCase().replace('.', '');
+        if (ext === 'url' && fs.existsSync(fullPath)) {
+          try {
+            const content = fs.readFileSync(fullPath, 'utf-8');
+            if (/steam:\/\/|com\.epicgames\.launcher:\/\/|riotgames:\/\/|battlenet:\/\//i.test(content)) {
+              categorization = {
+                category: CATEGORIES.GAMES,
+                targetRelativePath: CATEGORIES.GAMES,
+                confidence: 0.99,
+              };
+            }
+          } catch (e) {}
+        }
         const targetPath = path.join(desktopPath, categorization.targetRelativePath, entry.name);
 
         // Windows sisteminin orijinal, gerçek simgesini çekiyoruz (.lnk ve Steam oyun .url dahil)

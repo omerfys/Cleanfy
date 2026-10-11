@@ -167,6 +167,20 @@ const EXTENSION_MAP = {
   dwg: { category: CATEGORIES.DESIGN },
   dxf: { category: CATEGORIES.DESIGN },
 
+  // Oyun ve Mod Dosyaları
+  mrpack: { category: CATEGORIES.GAMES },
+  mcworld: { category: CATEGORIES.GAMES },
+  mcpack: { category: CATEGORIES.GAMES },
+  mcaddon: { category: CATEGORIES.GAMES },
+  mctemplate: { category: CATEGORIES.GAMES },
+  schem: { category: CATEGORIES.GAMES },
+  schematic: { category: CATEGORIES.GAMES },
+  litematic: { category: CATEGORIES.GAMES },
+  nbt: { category: CATEGORIES.GAMES },
+  jem: { category: CATEGORIES.GAMES },
+  jpm: { category: CATEGORIES.GAMES },
+  rom: { category: CATEGORIES.GAMES },
+
   // İnternet Kısayolları
   url: { category: CATEGORIES.INTERNET },
   webloc: { category: CATEGORIES.INTERNET },
@@ -195,9 +209,38 @@ const EXTENSION_MAP = {
 function categorizeFile(filename) {
   const lowerName = filename.toLowerCase();
 
-  // Kısayollar (.lnk) için akıllı kontrol: Oyun mu, Uygulama mı?
-  if (lowerName.endsWith('.lnk')) {
-    const gameKeywords = ['oyun', 'game', 'steam', 'epic', 'riot', 'valorant', 'minecraft', 'roblox', 'gta', 'witcher', 'counter-strike', 'csgo', 'cs2', 'fifa', 'pes', 'pubg', 'league of legends', 'lol', 'battle.net', 'origin', 'ubisoft'];
+  const softwareExceptions = [
+    'visual studio', 'vscode', 'intellij', 'pycharm', 'webstorm', 'sublime', 'notepad',
+    'photoshop', 'illustrator', 'premiere', 'blender', 'aseprite', 'wallpaper engine',
+    'obs studio', 'discord', 'telegram', 'spotify', 'chrome', 'firefox', 'edge', 'brave', 'opera'
+  ];
+  if (softwareExceptions.some(sw => lowerName.includes(sw))) {
+    if (lowerName.includes('aseprite') || lowerName.includes('photoshop') || lowerName.includes('illustrator') || lowerName.includes('blender')) {
+      return {
+        category: CATEGORIES.DESIGN,
+        targetRelativePath: CATEGORIES.DESIGN,
+        confidence: 0.95,
+      };
+    }
+    return {
+      category: CATEGORIES.SOFTWARE,
+      targetRelativePath: CATEGORIES.SOFTWARE,
+      confidence: 0.95,
+    };
+  }
+
+  const gameKeywords = [
+    'oyun', 'game', 'steam', 'epic', 'riot', 'valorant', 'minecraft', 'roblox', 'gta',
+    'witcher', 'counter-strike', 'csgo', 'cs2', 'fifa', 'pes', 'pubg', 'league of legends',
+    'lol', 'battle.net', 'origin', 'ubisoft', 'modrinth', 'curseforge', 'lunar', 'feather',
+    'badlion', 'tlauncher', 'cyberpunk', 'stardew', 'chivalry', 'rounds', 'goose', 'soccer',
+    'peak', 'how to fish', 'battle golf', 'hackhub', 'aniimo', 'dota', 'apex', 'fortnite',
+    'genshin', 'star rail', 'honkai', 'warzone', 'call of duty', 'rust', 'palworld',
+    'boatrace', 'blokoyun'
+  ];
+
+  // Kısayollar (.lnk veya .url) için akıllı kontrol: Oyun mu, Uygulama mı, İnternet mi?
+  if (lowerName.endsWith('.lnk') || lowerName.endsWith('.url')) {
     const isGame = gameKeywords.some(kw => lowerName.includes(kw));
     if (isGame) {
       return {
@@ -206,6 +249,24 @@ function categorizeFile(filename) {
         confidence: 0.95,
       };
     }
+
+    if (lowerName.endsWith('.url')) {
+      const nonGameSites = ['google', 'youtube', 'facebook', 'twitter', 'instagram', 'linkedin', 'github', 'e-devlet', 'edevlet'];
+      if (!nonGameSites.some(site => lowerName.includes(site))) {
+        // Windows masaüstündeki Steam / Epic / bağımsız oyun URL kısayolları
+        return {
+          category: CATEGORIES.GAMES,
+          targetRelativePath: CATEGORIES.GAMES,
+          confidence: 0.90,
+        };
+      }
+      return {
+        category: CATEGORIES.INTERNET,
+        targetRelativePath: CATEGORIES.INTERNET,
+        confidence: 0.85,
+      };
+    }
+
     // Genel yazılım kısayolu
     return {
       category: CATEGORIES.SOFTWARE,

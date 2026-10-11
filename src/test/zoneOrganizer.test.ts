@@ -201,4 +201,83 @@ describe('Çoklu Alan (Multi-Zone) Düzenleme Testleri', () => {
     expect(res2.targets['f-valorant'].x).toBeLessThan(2560);
     expect(res2.targets['f-valorant'].y).toBeLessThan(1440);
   });
+
+  it('Noktasız uzantılar (lnk, url, mrpack), Steam oyunları ve oyun dosyalarını eksiksiz algılamalı', () => {
+    const realWorldFiles: FileItem[] = [
+      {
+        id: 'g-cyberpunk',
+        name: 'Cyberpunk 2077.url',
+        extension: 'url', // Gerçek taranmış uzantı (noktasız)
+        currentPath: 'C:\\Users\\Desktop\\Cyberpunk 2077.url',
+        targetPath: 'C:\\Users\\Desktop\\Oyunlar\\Cyberpunk 2077.url',
+        targetRelativePath: 'Oyunlar',
+        category: 'İnternet Kısayolları',
+        sizeBytes: 120,
+        sizeFormatted: '120 B',
+        isFolder: false,
+      },
+      {
+        id: 'g-peak',
+        name: 'PEAK.url',
+        extension: 'url',
+        currentPath: 'C:\\Users\\Desktop\\PEAK.url',
+        targetPath: 'C:\\Users\\Desktop\\Oyunlar\\PEAK.url',
+        targetRelativePath: 'Oyunlar',
+        category: 'İnternet Kısayolları',
+        sizeBytes: 120,
+        sizeFormatted: '120 B',
+        isFolder: false,
+      },
+      {
+        id: 'g-roblox',
+        name: 'Roblox Player.lnk',
+        extension: 'lnk',
+        currentPath: 'C:\\Users\\Desktop\\Roblox Player.lnk',
+        targetPath: 'C:\\Users\\Desktop\\Oyunlar\\Roblox Player.lnk',
+        targetRelativePath: 'Oyunlar',
+        category: 'Oyunlar ve Oyun Kısayolları',
+        sizeBytes: 1024,
+        sizeFormatted: '1 KB',
+        isFolder: false,
+      },
+      {
+        id: 'g-modpack',
+        name: 'OptiForge.mrpack',
+        extension: 'mrpack',
+        currentPath: 'C:\\Users\\Desktop\\OptiForge.mrpack',
+        targetPath: 'C:\\Users\\Desktop\\Oyunlar\\OptiForge.mrpack',
+        targetRelativePath: 'Oyunlar',
+        category: 'Diğer Dosyalar',
+        sizeBytes: 5000000,
+        sizeFormatted: '5 MB',
+        isFolder: false,
+      },
+      {
+        id: 's-vscode',
+        name: 'Visual Studio Code.lnk',
+        extension: 'lnk',
+        currentPath: 'C:\\Users\\Desktop\\Visual Studio Code.lnk',
+        targetPath: 'C:\\Users\\Desktop\\Yazılımlar\\Visual Studio Code.lnk',
+        targetRelativePath: 'Yazılımlar',
+        category: 'Yazılımlar ve Kurulum Dosyaları',
+        sizeBytes: 1024,
+        sizeFormatted: '1 KB',
+        isFolder: false,
+      },
+    ];
+
+    const matchedByPrompt = matchFilesByCustomRequest(realWorldFiles, 'Buraya sadece oyunları koy');
+    const matchedIds = matchedByPrompt.matched.map(f => f.id);
+
+    expect(matchedIds).toContain('g-cyberpunk');
+    expect(matchedIds).toContain('g-peak');
+    expect(matchedIds).toContain('g-roblox');
+    expect(matchedIds).toContain('g-modpack');
+    expect(matchedIds).not.toContain('s-vscode');
+    expect(matchedByPrompt.matched.length).toBe(4);
+
+    // "oyun dosyalarını yerleştir" promptu testi
+    const matchedGameFiles = matchFilesByCustomRequest(realWorldFiles, 'oyun dosyalarını yerleştir');
+    expect(matchedGameFiles.matched.length).toBe(4);
+  });
 });

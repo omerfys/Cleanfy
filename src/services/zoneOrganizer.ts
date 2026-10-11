@@ -153,56 +153,119 @@ export const ZONE_PRESETS: ZonePreset[] = [
   { id: 'apps', label: 'Uygulamalar', emoji: '🚀', prompt: 'Buraya sadece uygulamaları koy' },
 ];
 
-const GAME_KEYWORDS = [
-  'valorant',
-  'roblox',
-  'modrinth',
-  'aniimo',
-  'steam',
-  'epic',
-  'riot',
-  'minecraft',
-  'lunar',
-  'feather',
-  'curseforge',
-  'battle.net',
-  'ubisoft',
-  'genshin',
-  'league of legends',
-  'cs2',
-  'counter-strike',
-  'dota',
-  'gta',
-  'fifa',
-  'cyberpunk',
-  'stardew',
-  'chivalry',
-  'rounds',
-  'goose',
-  'soccer',
-  'peak',
-  'how to fish',
-  'battle golf',
-  'hackhub',
-  'tlauncher',
-  'badlion',
-  'oyun',
-  'game',
+export const GAME_EXTENSIONS = new Set([
+  'mrpack',     // Modrinth Minecraft Modpack
+  'mcpack',     // Minecraft Bedrock Pack
+  'mcworld',    // Minecraft Bedrock World
+  'mcaddon',    // Minecraft Bedrock Addon
+  'mctemplate', // Minecraft Template
+  'schem',      // Minecraft WorldEdit Schematic
+  'schematic',  // Minecraft Schematic
+  'litematic',  // Minecraft Litematica
+  'nbt',        // Minecraft NBT structure
+  'jem',        // Custom Entity Model (OptiFine / CEM)
+  'jpm',        // Custom Item Model
+  'unity3d',    // Unity Web / Asset
+  'pak',        // Unreal / Game Asset Pack
+  'vpk',        // Valve Pack
+  'bsp',        // Source Engine Map
+  'wad',        // Doom / Game Wad
+  'pck',        // Godot Game Pack
+  'sav',        // Game Save
+  'save',       // Game Save
+  'gam',        // Game Save
+  'rom',        // Emulator ROM
+  'iso',        // Game Disc / ISO
+  'nsp',        // Switch ROM
+  'xci',        // Switch ROM
+  'gba',        // GameBoy Advance ROM
+  'nds',        // Nintendo DS ROM
+  '3ds',        // 3DS ROM
+]);
+
+export const GAME_KEYWORDS = [
+  'valorant', 'roblox', 'modrinth', 'aniimo', 'steam', 'epic', 'riot', 'minecraft',
+  'lunar', 'feather', 'curseforge', 'battle.net', 'ubisoft', 'genshin', 'league of legends',
+  'cs2', 'csgo', 'counter-strike', 'dota', 'gta', 'fifa', 'pes', 'cyberpunk', 'stardew',
+  'chivalry', 'rounds', 'goose', 'soccer', 'peak', 'how to fish', 'battle golf',
+  'hackhub', 'tlauncher', 'badlion', 'oyun', 'game', 'games', 'play', 'launcher',
+  'skyland', 'cosmic', 'volcano', 'cheese', 'witcher', 'pubg', 'apex', 'fortnite',
+  'overwatch', 'honkai', 'star rail', 'elden ring', 'dark souls', 'sekiro', 'assassin',
+  'far cry', 'call of duty', 'cod', 'warzone', 'battlefield', 'sims', 'rocket league',
+  'fall guys', 'among us', 'rust', 'ark', 'terraria', 'palworld', 'helldivers',
+  'baldurs gate', 'bg3', 'hades', 'hollow knight', 'dead by daylight', 'dbd',
+  'rainbow six', 'r6', 'siege', 'sea of thieves', 'forza', 'horizon', 'need for speed',
+  'nfs', 'euro truck', 'ets2', 'farming simulator', 'subnautica', 'lethal company',
+  'content warning', 'phasmophobia', 'spigot', 'paper', 'purpur', 'bukkit', 'craftbukkit',
+  'bungeecord', 'velocity', 'waterfall', 'geyser', 'floodgate', 'bedrock', 'optifine',
+  'iris', 'sodium', 'fabric', 'forge', 'neoforge', 'quilt', 'shader', 'resourcepack',
+  'texturepack', 'datapack', 'worldedit', 'voxel', 'modelengine', 'mythicmobs',
+  'citizens', 'hologram', 'luckperms', 'essentials', 'multiverse', 'vault', 'protocolib',
+  'boatrace', 'blokoyun'
+];
+
+function cleanExtension(ext: string): string {
+  return (ext || '').toLowerCase().replace(/^\./, '');
+}
+
+export const SOFTWARE_EXCEPTIONS = [
+  'visual studio', 'vscode', 'intellij', 'pycharm', 'webstorm', 'sublime', 'notepad',
+  'photoshop', 'illustrator', 'premiere', 'blender', 'aseprite', 'wallpaper engine',
+  'obs studio', 'discord', 'telegram', 'spotify', 'chrome', 'firefox', 'edge', 'brave', 'opera'
 ];
 
 export function isGameItem(file: FileItem): boolean {
-  if (file.isFolder) return false;
-  const ext = (file.extension || '').toLowerCase();
   const nameLower = (file.name || '').toLowerCase();
+  const rawExt = (file.extension || '').toLowerCase();
+  const cleanExt = rawExt.replace(/^\./, '');
+  const categoryLower = (file.category || '').toLowerCase();
 
-  // Windows masaüstündeki Steam / Epic oyun kısayolları (.url)
-  if (ext === '.url') return true;
+  // Bilinen genel yazılım ve geliştirici araçlarını oyundan hariç tut
+  if (SOFTWARE_EXCEPTIONS.some(sw => nameLower.includes(sw))) {
+    return false;
+  }
 
-  // Bilinen oyun ve oyun başlatıcı isimleri (.lnk veya .exe)
-  if (ext === '.lnk' || ext === '.exe' || ext === '') {
+  // 1. Klasörler: Eğer klasör adı oyun anahtar kelimesi içeriyorsa (ör. 'BlokOyun', 'BoatRace', vb.)
+  if (file.isFolder) {
+    if (nameLower.includes('oyun') || nameLower.includes('game') || GAME_KEYWORDS.some(kw => nameLower.includes(kw))) {
+      // Hedef kategori klasörlerini (örn. 'Oyunlar ve Oyun Kısayolları') hariç tut
+      if (nameLower === 'oyunlar ve oyun kısayolları' || nameLower === 'oyunlar' || nameLower === 'games') {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // 2. Kategorisi doğrudan Oyun olanlar
+  if (categoryLower.includes('oyun') || categoryLower.includes('game')) {
+    return true;
+  }
+
+  // 3. Oyun ve mod dosya formatları (.mrpack, .mcworld, .schem vb.)
+  if (GAME_EXTENSIONS.has(cleanExt) || GAME_EXTENSIONS.has(rawExt)) {
+    return true;
+  }
+
+  // 4. Windows Masaüstü İnternet Kısayolları (.url)
+  // Steam, Epic veya diğer platformlardan masaüstüne eklenen oyunlar (.url olarak kaydedilir)
+  if (cleanExt === 'url') {
+    const nonGameSites = ['google', 'youtube', 'facebook', 'twitter', 'instagram', 'linkedin', 'github', 'e-devlet', 'edevlet'];
+    if (!nonGameSites.some(site => nameLower.includes(site))) {
+      return true;
+    }
+  }
+
+  // 5. Masaüstü Kısayolları ve Çalıştırılabilir Dosyalar (.lnk veya .exe veya uzantısız)
+  if (cleanExt === 'lnk' || cleanExt === 'exe' || cleanExt === '') {
     if (GAME_KEYWORDS.some(kw => nameLower.includes(kw))) {
       return true;
     }
+  }
+
+  // 6. Dosya adında bilinen oyun anahtar kelimeleri geçen diğer tüm dosyalar
+  if (GAME_KEYWORDS.some(kw => nameLower.includes(kw))) {
+    return true;
   }
 
   return false;
@@ -231,7 +294,13 @@ export function matchFilesByCustomRequest(
   }
 
   // 1. Oyunlar
-  if (q.includes('oyun') || q.includes('game') || q.includes('steam')) {
+  if (
+    q.includes('oyun') ||
+    q.includes('game') ||
+    q.includes('steam') ||
+    q.includes('gamer') ||
+    q.includes('play')
+  ) {
     return {
       matched: files.filter(f => isGameItem(f)),
       label: 'Oyunlar',
@@ -256,10 +325,10 @@ export function matchFilesByCustomRequest(
     q.includes('winrar') ||
     q.includes('sıkıştır')
   ) {
-    const archiveExts = new Set(['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz']);
+    const archiveExts = new Set(['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz']);
     return {
       matched: files.filter(
-        f => !f.isFolder && (archiveExts.has(f.extension.toLowerCase()) || f.category === 'Arşivler')
+        f => !f.isFolder && (archiveExts.has(cleanExtension(f.extension)) || (f.category && (f.category.includes('Sıkıştırılmış') || f.category.includes('Arşiv'))))
       ),
       label: 'Arşiv Dosyaları',
     };
@@ -268,7 +337,7 @@ export function matchFilesByCustomRequest(
   // 4. Sadece JAR istendiyse
   if (q.includes('jar') && !q.includes('kod')) {
     return {
-      matched: files.filter(f => !f.isFolder && f.extension.toLowerCase() === '.jar'),
+      matched: files.filter(f => !f.isFolder && cleanExtension(f.extension) === 'jar'),
       label: 'JAR Dosyaları',
     };
   }
@@ -285,12 +354,12 @@ export function matchFilesByCustomRequest(
     q.includes('json')
   ) {
     const codeExts = new Set([
-      '.jar', '.yml', '.yaml', '.jem', '.json', '.py', '.js', '.ts', '.tsx', '.jsx',
-      '.cs', '.cpp', '.c', '.h', '.html', '.css', '.sql', '.sh', '.bat', '.ps1', '.xml', '.toml',
+      'jar', 'yml', 'yaml', 'jem', 'json', 'py', 'js', 'ts', 'tsx', 'jsx',
+      'cs', 'cpp', 'c', 'h', 'html', 'css', 'sql', 'sh', 'bat', 'ps1', 'xml', 'toml',
     ]);
     return {
       matched: files.filter(
-        f => !f.isFolder && (codeExts.has(f.extension.toLowerCase()) || f.category === 'Yazılım ve Kod Projeleri')
+        f => !f.isFolder && (codeExts.has(cleanExtension(f.extension)) || (f.category && (f.category.includes('Kod') || f.category.includes('Yazılım'))))
       ),
       label: 'Yazılım & Kodlar',
     };
@@ -306,10 +375,10 @@ export function matchFilesByCustomRequest(
     q.includes('jpg') ||
     q.includes('image')
   ) {
-    const imgExts = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico']);
+    const imgExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico']);
     return {
       matched: files.filter(
-        f => !f.isFolder && (imgExts.has(f.extension.toLowerCase()) || f.category === 'Fotoğraflar ve Görseller')
+        f => !f.isFolder && (imgExts.has(cleanExtension(f.extension)) || (f.category && (f.category.includes('Görsel') || f.category.includes('Fotoğraf'))))
       ),
       label: 'Görseller',
     };
@@ -328,10 +397,10 @@ export function matchFilesByCustomRequest(
     q.includes('dokuman') ||
     q.includes('yazı')
   ) {
-    const docExts = new Set(['.txt', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.md', '.rtf', '.csv']);
+    const docExts = new Set(['txt', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'md', 'rtf', 'csv']);
     return {
       matched: files.filter(
-        f => !f.isFolder && (docExts.has(f.extension.toLowerCase()) || f.category === 'Belgeler')
+        f => !f.isFolder && (docExts.has(cleanExtension(f.extension)) || (f.category && f.category.includes('Belge')))
       ),
       label: 'Belgeler',
     };
@@ -339,10 +408,10 @@ export function matchFilesByCustomRequest(
 
   // 8. Videolar ve Sesler
   if (q.includes('video') || q.includes('film') || q.includes('mp4') || q.includes('kayıt') || q.includes('ses') || q.includes('mp3')) {
-    const mediaExts = new Set(['.mp4', '.mkv', '.avi', '.mov', '.webm', '.wmv', '.mp3', '.wav', '.ogg', '.flac']);
+    const mediaExts = new Set(['mp4', 'mkv', 'avi', 'mov', 'webm', 'wmv', 'mp3', 'wav', 'ogg', 'flac']);
     return {
       matched: files.filter(
-        f => !f.isFolder && (mediaExts.has(f.extension.toLowerCase()) || f.category === 'Videolar' || f.category === 'Ses Dosyaları')
+        f => !f.isFolder && (mediaExts.has(cleanExtension(f.extension)) || (f.category && (f.category.includes('Video') || f.category.includes('Müzik') || f.category.includes('Ses'))))
       ),
       label: 'Medya & Video',
     };
@@ -357,10 +426,10 @@ export function matchFilesByCustomRequest(
     q.includes('kisayol') ||
     q.includes('kurulum')
   ) {
-    const appExts = new Set(['.exe', '.msi', '.lnk']);
+    const appExts = new Set(['exe', 'msi', 'lnk']);
     return {
       matched: files.filter(
-        f => !f.isFolder && !isGameItem(f) && (appExts.has(f.extension.toLowerCase()) || f.category === 'Kurulum Dosyaları' || f.category === 'Kısayollar')
+        f => !f.isFolder && !isGameItem(f) && (appExts.has(cleanExtension(f.extension)) || (f.category && (f.category.includes('Kurulum') || f.category.includes('Yazılım') || f.category.includes('Kısayol'))))
       ),
       label: 'Uygulamalar',
     };
