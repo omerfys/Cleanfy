@@ -1,0 +1,77 @@
+{
+  "name": "cleanfy",
+  "version": "1.0.0",
+  "description": "Türkçe Akıllı Masaüstü Robot Süpürgesi & Fizik Tabanlı Düzenleyici",
+  "main": "electron/main.cjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/omerfys/Cleanfy.git"
+  },
+  "homepage": "https://github.com/omerfys/Cleanfy#readme",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "electron:start": "electron .",
+    "start": "concurrently \"cross-env BROWSER=none vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
+    "package": "npm run build && electron-builder --win --dir",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "desktop-cleaner",
+    "vacuum-robot",
+    "windows",
+    "organizer",
+    "matter-js",
+    "electron",
+    "react",
+    "cleanfy"
+  ],
+  "author": "Ömer Faruk (omerfys)",
+  "license": "MIT",
+  "build": {
+    "appId": "com.cleanfy.robot",
+    "productName": "Cleanfy Robot Süpürge",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ]
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/matter-js": "^0.20.2",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "autoprefixer": "^10.6.1",
+    "concurrently": "^10.0.6",
+    "cross-env": "^10.1.0",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "postcss": "^8.5.29",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3",
+    "wait-on": "^9.5.1"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.4",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.55.0",
+    "matter-js": "^0.20.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}
