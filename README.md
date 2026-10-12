@@ -23,7 +23,7 @@
 
 > **Cleanfy**, Windows masaüstünü sıkıcı bir dosya listesinden çıkarıp yaşayan bir fizik ekosistemine dönüştüren açık kaynaklı bir masaüstü uygulamasıdır. Ekranda serbestçe dolaşan, engellerden kaçan ve döner fırçalarıyla tozu süpüren gerçekçi bir robot süpürge simülasyonu sunarken; arka planda masaüstündeki tüm dosyaları güvenli, geri alınabilir ve kural tabanlı bir hiyerarşiyle tertemiz klasörlere yerleştirir.
 
-[Başlangıç](#-hızlı-başlangıç--kurulum) • [Özellikler](#-özellikler-features) • [Selection Box](#-selection-box-ile-bölgesel-özel-dizilim) • [Mimari](#-mimari--çalışma-prensibi) • [Güvenlik Garantisi](#-kesin-güvenlik--veri-bütünlüğü-garantisi) • [English Overview](#-english-overview)
+[Başlangıç](#hızlı-başlangıç--kurulum) • [Özellikler](#özellikler-features) • [Selection Box](#selection-box-ile-bölgesel-özel-dizilim) • [Mimari](#mimari--çalışma-prensibi) • [Güvenlik Garantisi](#kesin-güvenlik--veri-bütünlüğü-garantisi) • [English Overview](#english-overview)
 
 <br>
 
@@ -36,26 +36,26 @@
 
 </div>
 
-## 📑 İçindekiler (Table of Contents)
+## İçindekiler (Table of Contents)
 
-- [🌟 Proje Vizyonu](#-proje-vizyonu)
-- [✨ Özellikler (Features)](#-özellikler-features)
-- [🎯 Selection Box ile Bölgesel Özel Dizilim](#-selection-box-ile-bölgesel-özel-dizilim)
-- [📊 Mimari & Çalışma Prensibi](#-mimari--çalışma-prensibi)
-- [📂 %100 Türkçe Klasör & Kategori Hiyerarşisi](#-100-türkçe-klasör--kategori-hiyerarşisi)
-- [🛡️ Kesin Güvenlik & Veri Bütünlüğü Garantisi](#-kesin-güvenlik--veri-bütünlüğü-garantisi)
-- [🚀 Hızlı Başlangıç & Kurulum](#-hızlı-başlangıç--kurulum)
-- [🎛️ Glassmorphism Kontrol Paneli](#️-glassmorphism-kontrol-paneli)
-- [⏪ Geri Alma (Undo) & Raporlama](#-geri-alma-undo--raporlama)
-- [⚡ Sıfır Donma & Optimize Edilmiş Fizik Motoru](#-sıfır-donma--optimize-edilmiş-fizik-motoru)
-- [❓ Sıkça Sorulan Sorular (FAQ)](#-sıkça-sorulan-sorular-faq)
-- [🌍 English Overview](#-english-overview)
-- [🔍 SEO Anahtar Kelimeler (SEO Index)](#-seo-anahtar-kelimeler-seo-index)
-- [📜 Lisans & Yazar](#-lisans--yazar)
+- [Proje Vizyonu](#proje-vizyonu)
+- [Özellikler (Features)](#özellikler-features)
+- [Selection Box ile Bölgesel Özel Dizilim](#selection-box-ile-bölgesel-özel-dizilim)
+- [Mimari & Çalışma Prensibi](#mimari--çalışma-prensibi)
+- [%100 Türkçe Klasör & Kategori Hiyerarşisi](#100-türkçe-klasör--kategori-hiyerarşisi)
+- [Kesin Güvenlik & Veri Bütünlüğü Garantisi](#kesin-güvenlik--veri-bütünlüğü-garantisi)
+- [Hızlı Başlangıç & Kurulum](#hızlı-başlangıç--kurulum)
+- [Glassmorphism Kontrol Paneli](#glassmorphism-kontrol-paneli)
+- [Geri Alma (Undo) & Raporlama](#geri-alma-undo--raporlama)
+- [Sıfır Donma & Optimize Edilmiş Fizik Motoru](#sıfır-donma--optimize-edilmiş-fizik-motoru)
+- [Sıkça Sorulan Sorular (FAQ)](#sıkça-sorulan-sorular-faq)
+- [English Overview](#english-overview)
+- [SEO Anahtar Kelimeler (SEO Index)](#seo-anahtar-kelimeler-seo-index)
+- [Lisans & Yazar](#lisans--yazar)
 
 ---
 
-## 🌟 Proje Vizyonu
+## Proje Vizyonu
 
 Klasik masaüstü temizleyiciler ve düzenleme betikleri genellikle sıkıcı, ruhsuz ve riskli araçlardır. Bir butona basarsınız ve dosyalarınızın nereye gittiğini tam olarak göremeden kaybolur.
 
@@ -66,34 +66,34 @@ Klasik masaüstü temizleyiciler ve düzenleme betikleri genellikle sıkıcı, r
 
 ---
 
-## ✨ Özellikler (Features)
+## Özellikler (Features)
 
-- 🧹 **Gerçekçi 2D/2.5D Robot Süpürge Simülasyonu:**
+- **Gerçekçi 2D/2.5D Robot Süpürge Simülasyonu:**
   - Bağımsız dönen üst **LiDAR lazer kubbesi** ve mavi tarama demeti.
   - Ön optik ve ultrasonik mesafe algılama sensörleri.
   - Yaylı ve esnek **ön çarpışma tamponu (bumper)**.
   - Gövde altında sürekli dönen **çift yan fırça** ve dinamik zemin toz parçacıkları.
-- ⚙️ **Matter.js 2D Sert Cisim Fiziği:**
+- **Matter.js 2D Sert Cisim Fiziği:**
   - Gerçek kütle, sürtünme ve esneklik katsayıları.
   - Robot dosyalara çarptığında simgeler gerçekçi biçimde kayar ve birbirini iter.
   - İkonlar dik açılarını korur (`angle = 0`), yazıları ve rozetleri her zaman okunaklı kalır.
-- 🎯 **Selection Box & Bölgesel Düzenleme:**
+- **Selection Box & Bölgesel Düzenleme:**
   - Ekranın herhangi bir noktasında dikdörtgen alan seçebilme.
   - Doğal dil Türkçe prompt desteği veya tek tıkla hazır kategori çipleri.
   - Hedef bölgeye uymayan dosyaları otomatik olarak bölge dışına kaydırma ve sadece istenen dosyaları nizami ızgaraya dizme.
-- 🪟 **Kompakt Glassmorphism Kontrol Menüsü:**
+- **Kompakt Glassmorphism Kontrol Menüsü:**
   - Sağ üst köşede minimalist, gizlenebilir ve akıcı yay (spring) animasyonlu kontrol paneli.
   - İlk açılışta masaüstünü kapatmayan zarif rozet görünümü.
-- 📁 **Akıllı Türkçe Kategori Tanıma:**
+- **Akıllı Türkçe Kategori Tanıma:**
   - 13 ana kategori ve onlarca alt klasör türü.
   - `.url` Steam / Epic / Riot oyun kısayollarını otomatik tespit eden oyun zekası.
-- 🛡️ **Geri Alınabilir & SHA-256 Doğrulamalı İşlemler:**
+- **Geri Alınabilir & SHA-256 Doğrulamalı İşlemler:**
   - Yapılan tüm taşımalar tek tıkla geri alınabilir (`UndoSession`).
   - Çıktılar **HTML**, **JSON** ve Excel uyumlu **CSV (UTF-8 BOM)** olarak dışa aktarılabilir.
 
 ---
 
-## 🎯 Selection Box ile Bölgesel Özel Dizilim
+## Selection Box ile Bölgesel Özel Dizilim
 
 Cleanfy, tüm masaüstünü toptan temizlemek yerine belirli bölgeleri özelleştirmenize olanak tanır:
 
@@ -102,14 +102,14 @@ Cleanfy, tüm masaüstünü toptan temizlemek yerine belirli bölgeleri özelle�
   <p align="center"><em>▲ Ekranda dikdörtgen alan çizimi, doğal dil istek ("Buraya sadece oyunları koy"), plan onaylama ve otomatik ızgara yerleşimi</em></p>
 </div>
 
-1. Sağ üst menüden **`🎯 Alan Seç & Özel Diz`** butonuna tıklayın.
+1. Sağ üst menüden **`Alan Seç & Özel Diz`** butonuna tıklayın.
 2. Farenizle masaüstünün istediğiniz köşesinde bir dikdörtgen çizin.
 3. Açılan Glassmorphism penceresinde hazır çiplerden (`🎮 Sadece Oyunlar`, `📁 Sadece Klasörler`, `📦 Sadece Arşivler`, `☕ Jar & Kodlar`, vb.) birini seçin ya da doğal dille isteğinizi yazın.
 4. **`+ Bu Alanı Plana Ekle`** dedikten sonra **`Planı Onayla & Diz`** butonuna tıkladığınızda dosyalarınız seçtiğiniz bölgeye nizami olarak yerleştirilir.
 
 ---
 
-## 📊 Mimari & Çalışma Prensibi
+## Mimari & Çalışma Prensibi
 
 ```mermaid
 flowchart TD
@@ -131,7 +131,7 @@ flowchart TD
 
 ---
 
-## 📂 %100 Türkçe Klasör & Kategori Hiyerarşisi
+## %100 Türkçe Klasör & Kategori Hiyerarşisi
 
 Cleanfy, dosyaları rastgele klasörlere tıkmak yerine profesyonel bir arşiv düzeni oluşturur:
 
@@ -166,7 +166,7 @@ Masaüstü/
 
 ---
 
-## 🛡️ Kesin Güvenlik & Veri Bütünlüğü Garantisi
+## Kesin Güvenlik & Veri Bütünlüğü Garantisi
 
 1. **Silme API'si Bulunmaz:** Kod tabanında dosya silme (`fs.unlink`, `rmdir`, `trash`) veya Geri Dönüşüm Kutusu'na atma işlevi kesinlikle yer almaz.
 2. **SHA-256 İçerik Doğrulaması:** Dosya taşınmadan önce ve taşındıktan sonra sağlama toplamı (hash) hesaplanır; 1 bayt bile uyuşmazsa işlem derhal durdurulur.
@@ -175,7 +175,7 @@ Masaüstü/
 
 ---
 
-## 🚀 Hızlı Başlangıç & Kurulum
+## Hızlı Başlangıç & Kurulum
 
 ### Gereksinimler
 - **İşletim Sistemi:** Windows 10 veya Windows 11 (64-bit)
@@ -211,7 +211,7 @@ npm run package
 
 ---
 
-## 🎛️ Glassmorphism Kontrol Paneli
+## Glassmorphism Kontrol Paneli
 
 <div align="center">
   <img src="docs/assets/3-multi-screen-hud.gif?v=2" width="94%" alt="Cleanfy Multi-Screen & HUD Drag Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
@@ -222,18 +222,18 @@ Sağ üst köşedeki kompakt panel üzerinden tüm operasyonları yönetebilirsi
 
 | Buton / Eleman | İşlev |
 | :--- | :--- |
-| **🔍 Tara** | Masaüstünü anlık olarak tarar, simgeleri fizik dünyasına aktarır. |
-| **✨ Başlat** | Güvenli temizlik sürecini başlatır; robot her dosyaya giderek taşır. |
-| **⏸️ Duraklat / Devam** | Temizlik sürecini istediğiniz saniyede duraklatıp devam ettirir. |
-| **⏹️ Durdur** | Temizliği durdurur ve robotu serbest dolaşma moduna geçirir. |
-| **🎯 Alan Seç & Özel Diz** | Ekranda kutu çizerek belirli dosya tiplerini o alana toplar. |
-| **📋 Plan** | Dosyaları tek tek inceleyebileceğiniz ve hariç tutabileceğiniz önizleme modalı. |
-| **📄 Rapor** | Yapılan taşımaların geçmişini ve dosya yollarını gösteren detaylı rapor. |
-| **⏪ Geri Al** | Son temizlik oturumunda taşınan tüm dosyaları anında eski yerine döndürür. |
+| **Tara** | Masaüstünü anlık olarak tarar, simgeleri fizik dünyasına aktarır. |
+| **Başlat** | Güvenli temizlik sürecini başlatır; robot her dosyaya giderek taşır. |
+| **Duraklat / Devam** | Temizlik sürecini istediğiniz saniyede duraklatıp devam ettirir. |
+| **Durdur** | Temizliği durdurur ve robotu serbest dolaşma moduna geçirir. |
+| **Alan Seç & Özel Diz** | Ekranda kutu çizerek belirli dosya tiplerini o alana toplar. |
+| **Plan** | Dosyaları tek tek inceleyebileceğiniz ve hariç tutabileceğiniz önizleme modalı. |
+| **Rapor** | Yapılan taşımaların geçmişini ve dosya yollarını gösteren detaylı rapor. |
+| **Geri Al** | Son temizlik oturumunda taşınan tüm dosyaları anında eski yerine döndürür. |
 
 ---
 
-## ⏪ Geri Alma (Undo) & Raporlama
+## Geri Alma (Undo) & Raporlama
 
 <div align="center">
   <img src="docs/assets/4-preview-plan-undo.gif?v=2" width="94%" alt="Cleanfy Preview Plan & Undo Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
@@ -242,13 +242,13 @@ Sağ üst köşedeki kompakt panel üzerinden tüm operasyonları yönetebilirsi
 
 - **Oturum Bazlı Geri Alma:** Temizlik işlemi tamamlandığında oturum kaydı hafızaya alınır. `Geri Al` butonuna bastığınızda taşınan tüm dosyalar güvenle orijinal masaüstü konumlarına geri çekilir.
 - **Dışa Aktarma Formatları:**
-  - 🌐 **HTML Raporu:** Renkli, filtrelenebilir ve yazdırmaya hazır görsel rapor.
-  - 📊 **CSV Raporu:** Microsoft Excel ile tam uyumlu Türkçe karakter destekli UTF-8 BOM CSV çıktısı.
-  - 📦 **JSON Raporu:** Otomasyonlar ve log arşivleri için standart JSON verisi.
+  - **HTML Raporu:** Renkli, filtrelenebilir ve yazdırmaya hazır görsel rapor.
+  - **CSV Raporu:** Microsoft Excel ile tam uyumlu Türkçe karakter destekli UTF-8 BOM CSV çıktısı.
+  - **JSON Raporu:** Otomasyonlar ve log arşivleri için standart JSON verisi.
 
 ---
 
-## ⚡ Sıfır Donma & Optimize Edilmiş Fizik Motoru
+## Sıfır Donma & Optimize Edilmiş Fizik Motoru
 
 - **60 FPS Hardware-Accelerated Canvas:** HTML5 Canvas 2D üzerinde GPU hızlandırmalı pürüzsüz çizim döngüsü.
 - **Fail-Safe Render Döngüsü:** Çizim fonksiyonu `try/catch/finally` koruması altındadır; beklenmeyen anlık istisnalar render akışını asla durdurmaz.
@@ -256,7 +256,7 @@ Sağ üst köşedeki kompakt panel üzerinden tüm operasyonları yönetebilirsi
 
 ---
 
-## ❓ Sıkça Sorulan Sorular (FAQ)
+## Sıkça Sorulan Sorular (FAQ)
 
 <details>
 <summary><strong>1. Cleanfy dosyalarımı silebilir veya kaybedebilir mi?</strong></summary>
@@ -280,7 +280,7 @@ Sağ üst menüde beliren "Sıfırla" butonuna tıklayarak özel alana sabitlene
 
 ---
 
-## 🌍 English Overview
+## English Overview
 
 **Cleanfy** is an intelligent, physics-driven desktop organization tool and robot vacuum simulator designed for Windows 10 & 11. Built with Electron, React 19, TypeScript, and Matter.js, it turns your cluttered desktop into an interactive physics sandbox while categorizing and moving files into clean, organized Turkish directories with zero risk of data loss.
 
@@ -292,17 +292,17 @@ Sağ üst menüde beliren "Sıfırla" butonuna tıklayarak özel alana sabitlene
 
 ---
 
-## 🔍 SEO Anahtar Kelimeler (SEO Index)
+## SEO Anahtar Kelimeler (SEO Index)
 
 `Cleanfy` • `Desktop Organizer` • `Masaüstü Robot Süpürge` • `Windows Desktop Cleaner` • `Matter.js Physics` • `Electron Desktop App` • `React 19` • `TypeScript` • `Canvas 2D Simulation` • `Interactive Vacuum Robot` • `Selection Box Organizer` • `Otomatik Dosya Düzenleyici` • `Güvenli Masaüstü Temizleyici` • `Omerfy` • `Creative Coding` • `Zero Data Loss` • `Undo Desktop Organization`
 
 ---
 
-## 📜 Lisans & Yazar
+## Lisans & Yazar
 
 Bu proje [MIT Lisansı](LICENSE) altında açık kaynak olarak sunulmuştur.
 
 Geliştirici: **[@omerfys](https://github.com/omerfys)**  
 GitHub Deposu: [https://github.com/omerfys/Cleanfy](https://github.com/omerfys/Cleanfy)
 
-⭐ **Projeyi beğendiyseniz GitHub üzerinden yıldız vermeyi unutmayın!**
+**Projeyi beğendiyseniz GitHub üzerinden yıldız vermeyi unutmayın!**
