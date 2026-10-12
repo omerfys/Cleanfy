@@ -28,7 +28,7 @@
 <br>
 
 <div align="center">
-  <img src="docs/assets/1-hero-physics-demo.gif" width="94%" alt="Cleanfy Robot Physics & LiDAR Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+  <img src="docs/assets/1-hero-physics-demo.gif?v=2" width="94%" alt="Cleanfy Robot Physics & LiDAR Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
   <p align="center"><em>▲ Gerçekçi 2.5D robot süpürge, LiDAR tarama lazeri, dönen fırçalar ve Matter.js sert cisim çarpışma fiziği</em></p>
 </div>
 
@@ -98,7 +98,7 @@ Klasik masaüstü temizleyiciler ve düzenleme betikleri genellikle sıkıcı, r
 Cleanfy, tüm masaüstünü toptan temizlemek yerine belirli bölgeleri özelleştirmenize olanak tanır:
 
 <div align="center">
-  <img src="docs/assets/2-selection-box-zones.gif" width="94%" alt="Cleanfy Selection Box Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+  <img src="docs/assets/2-selection-box-zones.gif?v=2" width="94%" alt="Cleanfy Selection Box Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
   <p align="center"><em>▲ Ekranda dikdörtgen alan çizimi, doğal dil istek ("Buraya sadece oyunları koy"), plan onaylama ve otomatik ızgara yerleşimi</em></p>
 </div>
 
@@ -214,7 +214,7 @@ npm run package
 ## 🎛️ Glassmorphism Kontrol Paneli
 
 <div align="center">
-  <img src="docs/assets/3-multi-screen-hud.gif" width="94%" alt="Cleanfy Multi-Screen & HUD Drag Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+  <img src="docs/assets/3-multi-screen-hud.gif?v=2" width="94%" alt="Cleanfy Multi-Screen & HUD Drag Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
   <p align="center"><em>▲ Sürüklenebilir minimalist Glassmorphism HUD ve Ekran 1, Ekran 2, Ekran 3 çoklu monitör geçişi</em></p>
 </div>
 
@@ -236,7 +236,7 @@ Sağ üst köşedeki kompakt panel üzerinden tüm operasyonları yönetebilirsi
 ## ⏪ Geri Alma (Undo) & Raporlama
 
 <div align="center">
-  <img src="docs/assets/4-preview-plan-undo.gif" width="94%" alt="Cleanfy Preview Plan & Undo Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+  <img src="docs/assets/4-preview-plan-undo.gif?v=2" width="94%" alt="Cleanfy Preview Plan & Undo Demo" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
   <p align="center"><em>▲ Masaüstü Düzenleme Planı inceleme, onaylama ve işlem sonrası tek tıkla Geri Al (Undo) güvencesi</em></p>
 </div>
 
